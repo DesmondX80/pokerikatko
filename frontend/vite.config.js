@@ -1,7 +1,7 @@
-// frontend/vite.config.js
 import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
 
 export default defineConfig({
-  // Korvaa 'projektin-nimi' GitHub-repositoriosi täydellisellä nimellä
-  base: 'pokerikatko',
+  plugins: [react()],
+  base: '/pokerikatko/', // Korvaa tämä oman repositoriosi nimellä!
 })

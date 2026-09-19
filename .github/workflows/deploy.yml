@@ -23,22 +23,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Poista kommenttimerkit (#) alta, jos koodisi pitää kääntää ennen julkaisua:
-      # - name: Install and Build
-      #   run: |
-      #     cd frontend
-      #     npm install
-      #     npm run build
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 1. Asennetaan riippuvuudet ja käännetään koodi dist-kansioon
+      - name: Install and Build
+        run: |
+          cd frontend
+          npm ci
+          npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
+      # 2. Osoitetaan GitHub Pages lukemaan nimenomaan käännettyä 'dist'-kansiota
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Määritä tähän kansio, jossa index.html sijaitsee
-          # (esim. 'frontend' tai 'frontend/dist' jos teet npm run buildin)
-          path: 'frontend'
+          path: 'frontend/dist'
 
       - name: Deploy to GitHub Pages
         id: deployment
