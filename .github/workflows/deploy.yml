@@ -2,7 +2,7 @@ name: Deploy Frontend to GitHub Pages
 
 on:
   push:
-    branches: ["main"] # tai master
+    branches: ["main"] # Varmista että tämä vastaa päähaarasi nimeä (main tai master)
 
 permissions:
   contents: read
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Jos käytät React/Vite-käännöstä, poista kommenttimerkit (#) seuraavista kahdesta kohdasta:
+      # Poista kommenttimerkit (#) alta, jos koodisi pitää kääntää ennen julkaisua:
       # - name: Install and Build
       #   run: |
       #     cd frontend
@@ -31,13 +31,13 @@ jobs:
       #     npm run build
 
       - name: Setup Pages
-        uses: actions/github-pages@v4
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Määritetään polku kansion kohdalle jossa index.html on
-          # (Jos teet buildin, tämä on yleensä 'frontend/dist' tai 'frontend/build')
+          # Määritä tähän kansio, jossa index.html sijaitsee
+          # (esim. 'frontend' tai 'frontend/dist' jos teet npm run buildin)
           path: 'frontend'
 
       - name: Deploy to GitHub Pages
