@@ -94,16 +94,16 @@ public class GameController {
         }
         state.put("players", playersJson);
 
-        if (engine.getCurrentTrick() != null) {
-            Map<String, Object> trickJson = new LinkedHashMap<>();
-            Map<String, Object> played = new LinkedHashMap<>();
-            for (Map.Entry<Player, com.pokerikatko.model.Card> e : engine.getCurrentTrick().getPlayedCards().entrySet()) {
-                played.put(e.getKey().getName(), e.getValue());
-            }
-            trickJson.put("playedCards", played);
-            trickJson.put("ledSuit", engine.getCurrentTrick().getLedSuit());
-            state.put("currentTrick", trickJson);
+        // Kaikki tikit (myös aiemmat) pöydälle näkyviin - ei vain nykyinen tikki.
+        List<Map<String, Object>> tricksJson = new ArrayList<>();
+        int trickNumber = 1;
+        for (Trick t : engine.getCompletedTricks()) {
+            tricksJson.add(trickToJson(trickNumber++, t, false));
         }
+        if (engine.getCurrentTrick() != null && engine.getPhase() == com.pokerikatko.model.GamePhase.TRICK_TAKING) {
+            tricksJson.add(trickToJson(trickNumber, engine.getCurrentTrick(), true));
+        }
+        state.put("tricks", tricksJson);
         state.put("completedTricksCount", engine.getCompletedTricks().size());
 
         if (engine.getPhase() == com.pokerikatko.model.GamePhase.TRICK_TAKING) {
@@ -122,5 +122,24 @@ public class GameController {
         state.put("bestPokerHandPlayerId", engine.getBestPokerHandPlayerId());
 
         return state;
+    }
+
+    private Map<String, Object> trickToJson(int trickNumber, Trick trick, boolean inProgress) {
+        Map<String, Object> trickJson = new LinkedHashMap<>();
+        trickJson.put("trickNumber", trickNumber);
+        trickJson.put("ledSuit", trick.getLedSuit());
+        trickJson.put("inProgress", inProgress);
+        trickJson.put("winnerName", trick.getWinner() != null ? trick.getWinner().getName() : null);
+
+        List<Map<String, Object>> plays = new ArrayList<>();
+        for (Map.Entry<Player, com.pokerikatko.model.Card> e : trick.getPlayedCards().entrySet()) {
+            Map<String, Object> play = new LinkedHashMap<>();
+            play.put("playerId", e.getKey().getId());
+            play.put("playerName", e.getKey().getName());
+            play.put("card", e.getValue());
+            plays.add(play);
+        }
+        trickJson.put("plays", plays);
+        return trickJson;
     }
 }

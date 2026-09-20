@@ -9,6 +9,26 @@ const PHASE_LABELS = {
   FINISHED: 'Kierros päättyi',
 }
 
+// Sijoittaa pelaajan pöydän ympärille tasaisin välein, ensimmäinen ylhäällä, sitten myötäpäivään.
+function seatStyle(index, total) {
+  const angle = (2 * Math.PI * index) / total - Math.PI / 2
+  const rx = 42 // vaakasäde prosentteina
+  const ry = 40 // pystysäde prosentteina
+  const left = 50 + rx * Math.cos(angle)
+  const top = 50 + ry * Math.sin(angle)
+  return { left: `${left}%`, top: `${top}%` }
+}
+
+// Kerää pelaajan kaikki tähän mennessä pelaamat kortit kierroksen aikana, pelijärjestyksessä.
+function collectSeatCards(tricks, playerId) {
+  const cards = []
+  for (const trick of tricks) {
+    const play = trick.plays.find((p) => p.playerId === playerId)
+    if (play) cards.push(play.card)
+  }
+  return cards
+}
+
 export default function App() {
   const [state, setState] = useState(null)
   const [players, setPlayers] = useState([
@@ -172,38 +192,60 @@ export default function App() {
         <p>Kaikki ovat vaihtaneet, käsitellään...</p>
       )}
 
-      {state.phase === 'TRICK_TAKING' && (
-        <>
-          <div className="trick-area">
-            {state.currentTrick &&
-              Object.entries(state.currentTrick.playedCards).map(([name, card]) => (
-                <div key={name} className="trick-slot">
-                  <CardView card={card} />
-                  <div>{name}</div>
-                </div>
-              ))}
-          </div>
-
-          {activeTrickPlayer && (
-            <div className="player-panel">
-              <p>
-                <strong>{activeTrickPlayer.name}</strong> on vuorossa
-                {state.currentTrick?.ledSuit
-                  ? ` — tunnusta väri ${state.currentTrick.ledSuit} jos mahdollista`
-                  : ' — avaa tikki'}
-              </p>
-              <div className="hand">
-                {activeTrickPlayer.hand.map((card, i) => (
-                  <CardView key={i} card={card} onClick={() => handlePlayCard(card)} />
-                ))}
-              </div>
+      {state.phase === 'TRICK_TAKING' && (() => {
+        const currentTrick = state.tricks.find((t) => t.inProgress)
+        return (
+          <>
+            <div className="poker-table">
+              {state.players.map((p, i) => {
+                const cards = collectSeatCards(state.tricks, p.id)
+                const isActing = p.id === state.playerToActId
+                return (
+                  <div key={p.id} className="seat" style={seatStyle(i, state.players.length)}>
+                    {cards.length > 0 ? (
+                      <div className="card-row">
+                        {cards.map((card, idx) => (
+                          <div
+                            key={idx}
+                            className="card-row-item"
+                            style={{ marginLeft: idx === 0 ? 0 : -30, zIndex: idx }}
+                          >
+                            <CardView card={card} />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="card-slot-empty" />
+                    )}
+                    <div className={'seat-name' + (isActing ? ' active' : '')}>
+                      {p.name} {p.ai && '🤖'}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
-          )}
-          <p style={{ textAlign: 'center', opacity: 0.7 }}>
-            Tikkejä pelattu: {state.completedTricksCount} / 5
-          </p>
-        </>
-      )}
+
+            {activeTrickPlayer && (
+              <div className="player-panel">
+                <p>
+                  <strong>{activeTrickPlayer.name}</strong> on vuorossa
+                  {currentTrick?.ledSuit
+                    ? ` — tunnusta väri ${currentTrick.ledSuit} jos mahdollista`
+                    : ' — avaa tikki'}
+                </p>
+                <div className="hand">
+                  {activeTrickPlayer.hand.map((card, i) => (
+                    <CardView key={i} card={card} onClick={() => handlePlayCard(card)} />
+                  ))}
+                </div>
+              </div>
+            )}
+            <p style={{ textAlign: 'center', opacity: 0.7 }}>
+              Tikkejä pelattu: {state.completedTricksCount} / 5
+            </p>
+          </>
+        )
+      })()}
 
       {state.phase === 'FINISHED' && (
         <div className="result-box">
