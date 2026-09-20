@@ -112,6 +112,7 @@ public class GameEngine {
 
         if (currentTrick.isComplete(players.size())) {
             Player winner = currentTrick.determineWinner();
+            currentTrick.setWinner(winner);
             completedTricks.add(currentTrick);
             leaderIndex = players.indexOf(winner);
 

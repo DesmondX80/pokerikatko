@@ -124,19 +124,54 @@ button:disabled {
 }
 
 .card {
-  background: #fff;
+  background: #fdfcf8;
   color: #222;
   width: 60px;
   height: 88px;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
+  border-radius: 6px;
+  position: relative;
   cursor: pointer;
   border: 3px solid transparent;
   user-select: none;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.card-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.card-corner-top {
+  top: 4px;
+  left: 4px;
+}
+
+.card-corner-bottom {
+  bottom: 4px;
+  right: 4px;
+  transform: rotate(180deg);
+}
+
+.card-corner-rank {
+  font-size: 0.95em;
+}
+
+.card-corner-suit {
+  font-size: 0.8em;
+  margin-top: -1px;
+}
+
+.card-center-suit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.9em;
 }
 
 .card.selected {
@@ -153,12 +188,51 @@ button:disabled {
   color: #c62828;
 }
 
-.trick-area {
+.poker-table {
+  position: relative;
+  width: 100%;
+  max-width: 640px;
+  height: 400px;
+  margin: 20px auto 10px;
+}
+
+.seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
   display: flex;
-  gap: 12px;
-  justify-content: center;
-  margin: 16px 0;
-  min-height: 100px;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-row {
+  display: flex;
+}
+
+.card-row-item {
+  position: relative;
+}
+
+.card-slot-empty {
+  width: 60px;
+  height: 88px;
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+}
+
+.seat-name {
+  font-size: 0.85em;
+  opacity: 0.85;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.seat-name.active {
+  color: #ffd54f;
+  font-weight: 700;
+  outline: 1px solid rgba(255, 213, 79, 0.6);
 }
 
 .trick-slot {

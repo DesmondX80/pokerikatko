@@ -12,6 +12,7 @@ import java.util.Map;
 public class Trick {
     private final Map<Player, Card> playedCards = new LinkedHashMap<>();
     private Suit ledSuit;
+    private Player winner; // asetetaan kun tikki on valmis
 
     public void playCard(Player player, Card card) {
         if (playedCards.isEmpty()) {
@@ -26,6 +27,14 @@ public class Trick {
 
     public Suit getLedSuit() {
         return ledSuit;
+    }
+
+    public Player getWinner() {
+        return winner;
+    }
+
+    public void setWinner(Player winner) {
+        this.winner = winner;
     }
 
     public boolean isComplete(int playerCount) {
