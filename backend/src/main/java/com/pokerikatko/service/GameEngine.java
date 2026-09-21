@@ -64,7 +64,13 @@ public class GameEngine {
             }
         }
 
+        // 1. Poistetaan hylätyt kortit pelaajan kädestä
         player.removeCards(discards);
+
+        // 2. Laitetaan hylätyt kortit pakan pohjalle ENSIN
+        deck.addToBottom(discards);
+
+        // 3. Nostetaan uudet kortit pakan päältä pelaajalle
         player.addCards(deck.draw(discards.size()));
         deck.addToBottom(discards); // hylätyt kortit pakan pohjalle, eivät heti uudelleen nostettavaksi
         playersWhoHaveDrawn.add(playerId);

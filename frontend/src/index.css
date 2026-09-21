@@ -1,336 +1,605 @@
 * {
   box-sizing: border-box;
-}
-
-body {
   margin: 0;
-  font-family: 'Segoe UI', system-ui, sans-serif;
-  background: #0b5d33;
-  color: #fff;
-  min-height: 100vh;
+  padding: 0;
 }
 
-.app {
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 24px;
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 4px;
-}
-
-.subtitle {
-  text-align: center;
-  opacity: 0.8;
-  margin-bottom: 24px;
-}
-
-.setup {
-  background: rgba(255,255,255,0.08);
-  padding: 20px;
-  border-radius: 12px;
-  max-width: 400px;
-  margin: 40px auto;
-}
-
-.setup input[type="text"],
-.setup .player-row input:not([type="checkbox"]) {
-  padding: 8px;
-  border-radius: 6px;
-  border: none;
-}
-
-.player-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 4px 0 12px;
-}
-
-.player-row input:not([type="checkbox"]) {
-  flex: 1;
-}
-
-.ai-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.85em;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.setup button {
+body, html, #root {
   width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #0f522e;
+  color: #fff;
 }
 
-button {
-  background: #ffd54f;
-  color: #222;
-  border: none;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: #11683a;
 }
 
-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.setup-mode {
+  justify-content: center;
+  align-items: center;
+  background: #0f522e;
+}
+
+.setup-card {
+  background: rgba(0, 0, 0, 0.4);
+  padding: 30px;
+  border-radius: 16px;
+  backdrop-filter: blur(10px);
+  width: 100%;
+  max-width: 450px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+/* VASEN SIVUPANEELI */
+.sidebar {
+  width: 250px;
+  min-width: 250px;
+  flex-shrink: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 20px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+  z-index: 50;
+}
+
+.sidebar-header h1 {
+  font-size: 1.6rem;
+  margin: 0;
+  color: #ffffff;
 }
 
 .scoreboard {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.scoreboard h3 {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  margin-bottom: 4px;
 }
 
 .player-badge {
-  background: rgba(255,255,255,0.1);
-  padding: 8px 14px;
-  border-radius: 8px;
-  min-width: 100px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
 }
 
 .player-badge.active {
-  outline: 2px solid #ffd54f;
+  background: rgba(253, 216, 53, 0.2);
+  border-color: #fdd835;
+  box-shadow: 0 0 10px rgba(253, 216, 53, 0.3);
 }
 
 .player-badge .name {
   font-weight: 600;
+  font-size: 1rem;
 }
 
 .player-badge .score {
-  font-size: 1.4em;
+  font-weight: 700;
+  color: #fdd835;
+  font-size: 1.1rem;
 }
 
-.phase-banner {
-  text-align: center;
-  background: rgba(0,0,0,0.25);
-  padding: 8px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.hand {
+/* OIKEA PELIALUE */
+.game-area {
+  flex: 1;
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin: 16px 0;
-}
-
-.card {
-  width: 60px;
-  height: 88px;
+  flex-direction: column;
   position: relative;
-  cursor: pointer;
-  border: 3px solid transparent;
-  border-radius: 8px;
-  user-select: none;
-  perspective: 500px;
-}
-
-.card-flip-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transform-style: preserve-3d;
-}
-
-.card-face {
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-  backface-visibility: hidden;
+  height: 100vh;
+  padding: 15px 20px;
   overflow: hidden;
 }
 
-.card-face-front {
-  background: #fdfcf8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.card-flip-inner .card-face-back {
-  transform: rotateY(180deg);
-}
-
-.card-face-back {
-  background-color: #1b4d8f;
-  background-image: repeating-linear-gradient(
-    45deg,
-    #1b4d8f,
-    #1b4d8f 6px,
-    #2a63b0 6px,
-    #2a63b0 12px
-  );
-  border: 3px solid #fdfcf8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.card-static-back {
-  border-radius: 6px;
-}
-
-.card-static-back .card-face-back {
-  position: absolute;
-  inset: 0;
-  border-radius: 6px;
-}
-
-.deck-count {
-  position: absolute;
-  bottom: -20px;
-  left: 0;
-  right: 0;
+.phase-banner {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 8px 20px;
+  border-radius: 20px;
   text-align: center;
-  font-size: 0.75em;
-  opacity: 0.85;
+  align-self: center;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  margin-bottom: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
+/* PELIPÖYTÄ */
+.poker-table {
+  flex: 1;
+  min-height: 280px;
+  position: relative;
+  margin: 10px 0;
+  border-radius: 100px;
+  background: radial-gradient(circle, #1a8a4f 0%, #126338 70%, #0d4a2a 100%);
+  border: 10px solid #08331d;
+  box-shadow: inset 0 0 40px rgba(0,0,0,0.5), 0 10px 25px rgba(0,0,0,0.3);
+  overflow: hidden;
+}
+
+/* PAKKA KESKELLÄ */
 .deck-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin: 0 auto 24px;
-  width: 60px;
-}
-
-.card-corner {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  line-height: 1;
-  font-weight: 700;
-  color: #222;
-}
-
-.card-corner-top {
-  top: 4px;
-  left: 4px;
-}
-
-.card-corner-bottom {
-  bottom: 4px;
-  right: 4px;
-  transform: rotate(180deg);
-}
-
-.card-corner-rank {
-  font-size: 0.95em;
-}
-
-.card-corner-suit {
-  font-size: 0.8em;
-  margin-top: -1px;
-}
-
-.card-center-suit {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 1.9em;
-  color: #222;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.card.selected {
-  border-color: #ffd54f;
-}
-
-.card.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.card.red .card-corner,
-.card.red .card-center-suit {
-  color: #c62828;
-}
-
-.poker-table {
-  position: relative;
-  width: 100%;
-  max-width: 480px;
-  height: 320px;
-  margin: 20px auto 10px;
-}
-
+/* PELAAJIEN PAIKAT PÖYDÄLLÄ */
 .seat {
   position: absolute;
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  z-index: 10;
+  transition: all 0.3s ease;
 }
 
+.seat-name {
+  margin-top: 6px;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.seat-name.active {
+  border-color: #fdd835;
+  color: #fdd835;
+  box-shadow: 0 0 8px rgba(253, 216, 53, 0.4);
+}
+
+.seat-hand-label {
+  font-size: 0.75rem;
+  color: #fdd835;
+  margin-top: 2px;
+}
+
+/* KORTTIRIVIT (Vastustajat ja pöytä) */
 .card-row {
   display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
 }
 
 .card-row-item {
-  position: relative;
+  display: flex;
+  transition: transform 0.2s ease;
 }
 
 .card-slot-empty {
   width: 60px;
-  height: 88px;
-  border: 2px dashed rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
+  height: 84px;
 }
 
-.seat-name {
-  font-size: 0.85em;
-  opacity: 0.85;
-  white-space: nowrap;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 2px 8px;
-  border-radius: 6px;
+/* OMAT KORTIT (Alapaneeli) */
+.hand {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 5px;
 }
 
-.seat-name.active {
-  color: #ffd54f;
-  font-weight: 700;
-  outline: 1px solid rgba(255, 213, 79, 0.6);
-}
-
-.seat-hand-label {
-  font-size: 0.72em;
-  opacity: 0.9;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 2px 7px;
-  border-radius: 6px;
-  text-align: center;
-  white-space: nowrap;
-}
-
-.trick-slot {
-  text-align: center;
-  font-size: 0.8em;
-}
-
+/* OHJAUSPANEELI ALHAALLA */
 .player-panel {
-  background: rgba(255,255,255,0.06);
-  padding: 16px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 12px 20px;
   border-radius: 12px;
-  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(5px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.player-panel button {
+  background: #fdd835;
+  color: #111;
+  border: none;
+  padding: 8px 24px;
+  font-size: 1rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.player-panel button:hover:not(:disabled) {
+  background: #ffee58;
+}
+
+.player-panel button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .result-box {
-  background: rgba(0,0,0,0.3);
-  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 15px 30px;
   border-radius: 12px;
-  margin-top: 20px;
+  text-align: center;
+  align-self: center;
+  margin-top: auto;
+  border: 1px solid #fdd835;
+  flex-shrink: 0;
+}
+
+.result-box button {
+  margin-top: 10px;
+  background: #fdd835;
+  color: #111;
+  border: none;
+  padding: 8px 20px;
+  font-weight: bold;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .error {
-  background: #c62828;
-  padding: 8px 12px;
+  background: #d32f2f;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+/* ========================================= */
+/* KORTTIEN TYYLIT JA KULMIEN SIJOITTELU    */
+/* ========================================= */
+
+.card {
+  width: 60px;
+  height: 84px;
+  position: relative;
+  perspective: 1000px;
+  cursor: pointer;
+  user-select: none;
+  font-family: Arial, sans-serif;
+  color: #111111;
+}
+
+.card.red {
+  color: #d32f2f;
+}
+
+.card.disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.card:hover:not(.disabled):not(.selected) {
+  transform: translateY(-5px);
+  transition: transform 0.2s ease;
+}
+
+.card.selected .card-face-front {
+  box-shadow: 0 4px 12px rgba(253, 216, 53, 0.9);
+  border: 2px solid #fdd835;
+}
+
+/* Kortin sisäinen 3D-kääntäjä */
+.card-flip-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+}
+
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
   border-radius: 8px;
-  margin-bottom: 12px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+}
+
+/* --- ETUPUOLI JA ABSOLUUTTISET KULMAT --- */
+.card-face-front {
+  background-color: #ffffff !important;
+  border: 1px solid #ccc;
+  position: relative; /* Mahdollistaa kulmien ja keskustan tarkan sijoittelun */
+  overflow: hidden;
+  transform: rotateY(0deg);
+}
+
+/* Ylävasen kulma */
+.card-corner-top {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-weight: bold;
+}
+
+.card-corner-rank {
+  font-size: 14px;
+}
+
+.card-corner-suit {
+  font-size: 12px;
+  margin-top: 1px;
+}
+
+/* Alaoikea kulma (käännetty 180 astetta, jotta teksti on oikeinpäin nurkassa) */
+.card-corner-bottom {
+  position: absolute;
+  bottom: 5px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  font-weight: bold;
+  transform: rotate(180deg);
+}
+
+/* Keskellä oleva suuri maasymboli */
+.card-center-suit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+}
+
+/* --- KÄÄNTÖPUOLET JA PAKKA --- */
+.card-face-back,
+.card-static-back,
+.card-static-back .card-face-back {
+  background-color: #1565c0 !important;
+  background-image: repeating-linear-gradient(
+          45deg,
+          #1565c0,
+          #1565c0 5px,
+          #0d47a1 5px,
+          #0d47a1 10px
+  ) !important;
+  border: 2px solid #ffffff !important;
+  transform: rotateY(180deg);
+}
+
+.card.card-static-back {
+  background-color: #1565c0 !important;
+  background-image: repeating-linear-gradient(
+          45deg,
+          #1565c0,
+          #1565c0 5px,
+          #0d47a1 5px,
+          #0d47a1 10px
+  ) !important;
+  border: 2px solid #ffffff !important;
+  transform: none;
+}
+
+.deck-count {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff !important;
+  font-weight: bold;
+  font-size: 16px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  z-index: 10;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================= */
+/* ALKUMENUN KORJATTU JA TURVALLINEN TYYLI   */
+/* ========================================= */
+
+.setup-mode {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: radial-gradient(circle, #1a8a4f 0%, #0f522e 70%, #08331d 100%) !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  z-index: 100 !important;
+  box-sizing: border-box !important;
+}
+
+.setup-card {
+  background: rgba(10, 30, 20, 0.92) !important;
+  padding: 35px !important;
+  border-radius: 20px !important;
+  backdrop-filter: blur(15px) !important;
+  width: 100% !important;
+  max-width: 480px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+  color: #fff !important;
+  box-sizing: border-box !important;
+}
+
+/* Varmistetaan, että App.jsx:n sisällä oleva .setup div pinoaa kaiken pystysuoraan */
+.setup-card .setup {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  gap: 8px !important;
+}
+
+.setup-card h1 {
+  font-size: 1.8rem !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 2px 0 !important;
+}
+
+.setup-card .subtitle {
+  font-size: 0.9rem !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+  margin: 0 0 10px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  padding-bottom: 10px !important;
+}
+
+/* Yksittäinen pelaajarivi: VAIN tämä on vaakasuora (tekstikenttä + botti) */
+.setup-card .player-row {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+  margin-bottom: 6px !important;
+}
+
+/* Nimitietojen syöttökenttä */
+.setup-card input[type="text"] {
+  flex: 1 !important;
+  width: 100% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #ffffff !important;
+  padding: 10px 14px !important;
+  border-radius: 10px !important;
+  font-size: 0.95rem !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.setup-card input[type="text"]:focus {
+  border-color: #fdd835 !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  box-shadow: 0 0 10px rgba(253, 216, 53, 0.3) !important;
+}
+
+/* Botti-valintaruutu */
+.setup-card .ai-checkbox,
+.setup-card label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  color: #ffffff !important;
+  font-size: 0.9rem !important;
+  white-space: nowrap !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  margin: 0 !important;
+}
+
+.setup-card input[type="checkbox"] {
+  accent-color: #fdd835 !important;
+  width: 18px !important;
+  height: 18px !important;
+  cursor: pointer !important;
+}
+
+/* Lisää/Poista -painikkeiden rivi (App.jsx:ssä div style={{ display: 'flex', ... }}) */
+.setup-card .setup > div[style] {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  width: 100% !important;
+  margin: 6px 0 !important;
+}
+
+/* Peruspainikkeet (Lisää pelaaja, Poista) */
+.setup-card button {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  padding: 10px 16px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  border-radius: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.setup-card button:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Pelin aloituspainike ("Jaa kortit ja aloita") – aina viimeisenä napina */
+.setup-card > button:last-of-type,
+.setup-card .setup > button:last-of-type {
+  background: #fdd835 !important;
+  color: #111 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  padding: 12px 20px !important;
+  font-size: 1rem !important;
+  width: 100% !important;
+  margin-top: 10px !important;
+  box-shadow: 0 4px 15px rgba(253, 216, 53, 0.3) !important;
+}
+
+.setup-card > button:last-of-type:hover,
+.setup-card .setup > button:last-of-type:hover {
+  background: #ffee58 !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 20px rgba(253, 216, 53, 0.4) !important;
+}
+
+/* Pakotettu moderni tyyli alkumenun syöttökentille */
+.setup-card input[type="text"] {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  font-size: 0.95rem !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+.setup-card input[type="text"]:focus {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border-color: #fdd835 !important;
+  box-shadow: 0 0 8px rgba(253, 216, 53, 0.4) !important;
 }
