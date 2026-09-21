@@ -18,33 +18,59 @@ import java.util.stream.Collectors;
  *    seuratessa pelataan korkein kortti lyödyssä värissä jos mahdollista
  *    (yritetään voittaa tikki), muuten tyhjennetään matalin kortti kädestä.
  *
- * processAiTurns ratkaisee kaikki peräkkäiset botti-vuorot automaattisesti,
- * kunnes on ihmispelaajan vuoro tai kierros on ohi.
+ * Botin vuorot ratkaistaan YKSI KERRALLAAN (processOneAiTurn), ei kaikkia
+ * peräkkäisiä botti-vuoroja kerralla. Näin frontend voi pyytää seuraavan
+ * botin siirron vasta sitten kun edellisen kortin saapumisanimaatio pöydälle
+ * on ehtinyt näkyä, jolloin peli etenee askel askeleelta eikä kaikki botin
+ * kortit ilmesty pöydälle yhtäkkiä samalla kertaa.
  */
 @Service
 public class BotService {
 
-    public void processAiTurns(GameEngine engine) {
-        boolean progressed = true;
-        while (progressed) {
-            progressed = false;
+    private static final long THINK_DELAY_MS = 1500;
 
-            if (engine.getPhase() == GamePhase.DEALT) {
-                for (Player p : engine.getPlayers()) {
-                    if (p.isAi() && !engine.getPlayersWhoHaveDrawn().contains(p.getId())) {
-                        engine.applyDraw(p.getId(), decideDiscards(p));
-                        progressed = true;
-                        break; // vaihe on voinut muuttua - tarkistetaan uudelleen alusta
-                    }
-                }
-            } else if (engine.getPhase() == GamePhase.TRICK_TAKING) {
-                Player toAct = engine.playerToActInTrick();
-                if (toAct.isAi()) {
-                    Card card = decideCardToPlay(toAct, engine.getCurrentTrick());
-                    engine.playCard(toAct.getId(), card);
-                    progressed = true;
+    /** Onko juuri nyt vuorossa botti - joko vaihtamassa kortteja tai pelaamassa tikkiin? */
+    public boolean isAiTurnPending(GameEngine engine) {
+        if (engine.getPhase() == GamePhase.DEALT) {
+            return engine.getPlayers().stream()
+                    .anyMatch(p -> p.isAi() && !engine.getPlayersWhoHaveDrawn().contains(p.getId()));
+        }
+        if (engine.getPhase() == GamePhase.TRICK_TAKING) {
+            return engine.playerToActInTrick().isAi();
+        }
+        return false;
+    }
+
+    /**
+     * Suorittaa täsmälleen yhden botin vuoron (joko yhden pelaajan pokerivaihdon
+     * tai yhden pelatun kortin) pienen "miettimisviiveen" jälkeen. Kutsujan
+     * vastuulla on kutsua tätä vain kun isAiTurnPending palauttaa true.
+     */
+    public void processOneAiTurn(GameEngine engine) {
+        sleepThinking();
+
+        if (engine.getPhase() == GamePhase.DEALT) {
+            for (Player p : engine.getPlayers()) {
+                if (p.isAi() && !engine.getPlayersWhoHaveDrawn().contains(p.getId())) {
+                    engine.applyDraw(p.getId(), decideDiscards(p));
+                    return;
                 }
             }
+        } else if (engine.getPhase() == GamePhase.TRICK_TAKING) {
+            Player toAct = engine.playerToActInTrick();
+            if (toAct.isAi()) {
+                Card card = decideCardToPlay(toAct, engine.getCurrentTrick());
+                engine.playCard(toAct.getId(), card);
+            }
+        }
+    }
+
+    /** Pieni keinotekoinen "miettimisviive" ennen botin siirtoa, autenttisemman tuntuman vuoksi. */
+    private void sleepThinking() {
+        try {
+            Thread.sleep(THINK_DELAY_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -40,3 +40,13 @@ export async function playCard(gameId, playerId, card) {
   })
   return handle(res)
 }
+
+// Pyytää palvelinta suorittamaan yhden (ja vain yhden) botin vuoron, jos sellainen
+// on juuri nyt vireillä. Kutsutaan pienellä viiveellä edellisen kortin/siirron
+// jälkeen, jotta botit "miettivät" vasta edellisen animaation asetuttua.
+export async function advanceBot(gameId) {
+  const res = await fetch(`${BASE_URL}/${gameId}/advance-bot`, {
+    method: 'POST',
+  })
+  return handle(res)
+}

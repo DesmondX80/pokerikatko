@@ -124,17 +124,79 @@ button:disabled {
 }
 
 .card {
-  background: #fdfcf8;
-  color: #222;
   width: 60px;
   height: 88px;
-  border-radius: 6px;
   position: relative;
   cursor: pointer;
   border: 3px solid transparent;
+  border-radius: 8px;
   user-select: none;
+  perspective: 500px;
+}
+
+.card-flip-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+}
+
+.card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  backface-visibility: hidden;
   overflow: hidden;
+}
+
+.card-face-front {
+  background: #fdfcf8;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.card-flip-inner .card-face-back {
+  transform: rotateY(180deg);
+}
+
+.card-face-back {
+  background-color: #1b4d8f;
+  background-image: repeating-linear-gradient(
+    45deg,
+    #1b4d8f,
+    #1b4d8f 6px,
+    #2a63b0 6px,
+    #2a63b0 12px
+  );
+  border: 3px solid #fdfcf8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.card-static-back {
+  border-radius: 6px;
+}
+
+.card-static-back .card-face-back {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+}
+
+.deck-count {
+  position: absolute;
+  bottom: -20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.75em;
+  opacity: 0.85;
+}
+
+.deck-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 auto 24px;
+  width: 60px;
 }
 
 .card-corner {
@@ -144,6 +206,7 @@ button:disabled {
   align-items: center;
   line-height: 1;
   font-weight: 700;
+  color: #222;
 }
 
 .card-corner-top {
@@ -172,11 +235,11 @@ button:disabled {
   left: 50%;
   transform: translate(-50%, -50%);
   font-size: 1.9em;
+  color: #222;
 }
 
 .card.selected {
   border-color: #ffd54f;
-  transform: translateY(-8px);
 }
 
 .card.disabled {
@@ -184,15 +247,16 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.card.red {
+.card.red .card-corner,
+.card.red .card-center-suit {
   color: #c62828;
 }
 
 .poker-table {
   position: relative;
   width: 100%;
-  max-width: 640px;
-  height: 400px;
+  max-width: 480px;
+  height: 320px;
   margin: 20px auto 10px;
 }
 
@@ -233,6 +297,16 @@ button:disabled {
   color: #ffd54f;
   font-weight: 700;
   outline: 1px solid rgba(255, 213, 79, 0.6);
+}
+
+.seat-hand-label {
+  font-size: 0.72em;
+  opacity: 0.9;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 7px;
+  border-radius: 6px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .trick-slot {

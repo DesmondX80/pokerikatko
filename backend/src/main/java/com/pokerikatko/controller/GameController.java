@@ -36,7 +36,6 @@ public class GameController {
         }
         GameEngine engine = new GameEngine(gameId, players);
         engine.dealInitialHands();
-        botService.processAiTurns(engine);
         store.save(engine);
         return toState(engine);
     }
@@ -51,7 +50,6 @@ public class GameController {
         try {
             GameEngine engine = store.get(gameId);
             engine.applyDraw(request.playerId, request.discards);
-            botService.processAiTurns(engine);
             return ResponseEntity.ok(toState(engine));
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -63,7 +61,25 @@ public class GameController {
         try {
             GameEngine engine = store.get(gameId);
             engine.playCard(request.playerId, request.card);
-            botService.processAiTurns(engine);
+            return ResponseEntity.ok(toState(engine));
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Suorittaa täsmälleen yhden botin vuoron (jos sellainen on juuri nyt vireillä) ja
+     * palauttaa päivittyneen tilan. Frontend kutsuu tätä vasta kun edellisen kortin
+     * saapumisanimaatio pöydälle on ehtinyt näkyä, jolloin botit "miettivät" vasta
+     * edellisen siirron jälkeen eivätkä kaikki botin kortit ilmesty kerralla.
+     */
+    @PostMapping("/{gameId}/advance-bot")
+    public ResponseEntity<?> advanceBot(@PathVariable String gameId) {
+        try {
+            GameEngine engine = store.get(gameId);
+            if (botService.isAiTurnPending(engine)) {
+                botService.processOneAiTurn(engine);
+            }
             return ResponseEntity.ok(toState(engine));
         } catch (IllegalStateException | IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -80,6 +96,7 @@ public class GameController {
         Map<String, Object> state = new LinkedHashMap<>();
         state.put("gameId", engine.getGameId());
         state.put("phase", engine.getPhase());
+        state.put("deckSize", engine.getDeckSize());
 
         List<Map<String, Object>> playersJson = new ArrayList<>();
         for (Player p : engine.getPlayers()) {
@@ -120,6 +137,7 @@ public class GameController {
 
         state.put("lastTrickWinnerId", engine.getLastTrickWinnerId());
         state.put("bestPokerHandPlayerId", engine.getBestPokerHandPlayerId());
+        state.put("aiTurnPending", botService.isAiTurnPending(engine));
 
         return state;
     }

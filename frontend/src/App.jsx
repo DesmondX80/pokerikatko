@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import CardView from './components/CardView.jsx'
-import { createGame, draw, playCard } from './api.js'
+import { useEffect, useRef, useState } from 'react'
+import CardView, { CardBack } from './components/CardView.jsx'
+import { advanceBot, createGame, draw, playCard } from './api.js'
 
 const PHASE_LABELS = {
   DEALT: 'Pokerivaihto käynnissä',
@@ -12,11 +12,23 @@ const PHASE_LABELS = {
 // Sijoittaa pelaajan pöydän ympärille tasaisin välein, ensimmäinen ylhäällä, sitten myötäpäivään.
 function seatStyle(index, total) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2
-  const rx = 42 // vaakasäde prosentteina
-  const ry = 40 // pystysäde prosentteina
+  const rx = 30 // vaakasäde prosentteina
+  const ry = 28 // pystysäde prosentteina
   const left = 50 + rx * Math.cos(angle)
   const top = 50 + ry * Math.sin(angle)
   return { left: `${left}%`, top: `${top}%` }
+}
+
+// "Alin" paikka-indeksi total-pelaajan pöydässä (lähinnä ruudun alareunaa).
+function frontSeatIndex(total) {
+  return Math.floor(total / 2)
+}
+
+// Kiertää pelaajien näyttöjärjestyksen niin että ankkuripelaaja (esim. vuorossa oleva)
+// näkyy aina alimmalla paikalla, muut pysyvät samassa suhteellisessa järjestyksessä.
+function rotatedSeatIndex(originalIndex, total, anchorIndex) {
+  if (anchorIndex == null || anchorIndex < 0) return originalIndex
+  return (originalIndex - anchorIndex + frontSeatIndex(total) + total) % total
 }
 
 // Kerää pelaajan kaikki tähän mennessä pelaamat kortit kierroksen aikana, pelijärjestyksessä.
@@ -40,6 +52,93 @@ export default function App() {
   // Pokerivaihtoa varten: kuka on juuri nyt valittuna vaihtamaan
   const [drawingPlayerId, setDrawingPlayerId] = useState(null)
   const [selectedDiscards, setSelectedDiscards] = useState([])
+  const [isWaitingForBots, setIsWaitingForBots] = useState(false)
+  // Näytetäänkö juuri nyt "tässä lopullinen kätesi" -näkymä vaihdon jälkeen
+  // (ennen kuin siirrytään seuraavaan pelaajaan)?
+  const [revealingDraw, setRevealingDraw] = useState(false)
+
+  // Muistaa pelaajakohtaisesti, mitkä kortit (maa+arvo) on jo NÄYTETTY kyseiselle
+  // pelaajalle aiemmin - näiden ei tarvitse kääntyä pakasta enää uudelleen, kun
+  // taas vaihdossa saadut UUDET kortit puuttuvat vielä joukosta ja kääntyvät.
+  const seenCardKeysRef = useRef(new Map())
+
+  // Estää saman botin vuoron käynnistymisen kahdesti (esim. Reactin
+  // kehitystilan efektien tahallisen tuplakäynnistyksen takia) - tallentaa
+  // "allekirjoituksen" siitä tilanteesta jolle botin siirto on jo pyydetty.
+  const lastAdvanceSignatureRef = useRef(null)
+  // Pitää kirjaa siitä, mikä peli on juuri nyt aktiivinen, jotta vanhentunutta
+  // vastausta ei sovelleta jos peli on sillä välin nollattu ("Uusi peli").
+  const activeGameIdRef = useRef(null)
+  activeGameIdRef.current = state ? state.gameId : null
+
+  // Pöydän kiertoankkuri: päivittyy vain kun oikeasti IHMISEN vuoro on käsillä,
+  // ei botin jokaisen yksittäisen kortin jälkeen - muuten koko pöytä pyörähtäisi
+  // sekavasti joka kerta kun botti pelaa, mikä ei tunnu jouhevalta.
+  const lastHumanAnchorRef = useRef(null)
+
+  // Päivittää pelin tilan ja sen mukana sen, kenen vaihtopaneeli näytetään (vain ihmiset).
+  // HUOM: jos "lopullinen kätesi" -paljastus on juuri nyt kesken, EI kosketa
+  // drawingPlayerId:hen tästä - muuten esim. botin samanaikainen tikkivuoro voisi
+  // nollata sen ja katkaista paljastuksen kesken kaiken.
+  function applyState(data) {
+    setState(data)
+    if (revealingDraw) return
+    if (data.phase === 'DEALT') {
+      const next = data.players.find((p) => !p.ai && !p.hasDrawn)
+      setDrawingPlayerId(next ? next.id : null)
+    } else {
+      setDrawingPlayerId(null)
+    }
+  }
+
+  const drawingPlayer = state?.players.find((p) => p.id === drawingPlayerId)
+
+  // Merkitsee drawingPlayerin NYKYISEN käden kortit "nähdyiksi" - tämä ajetaan
+  // renderöinnin JÄLKEEN, joten sama renderöinti ehtii vielä käyttää EDELLISTÄ
+  // (vaihtoa edeltävää) nähtyjen korttien joukkoa laskiessaan mitkä kortit ovat uusia.
+  useEffect(() => {
+    if (!drawingPlayer) return
+    const set = seenCardKeysRef.current.get(drawingPlayer.id) ?? new Set()
+    drawingPlayer.hand.forEach((c) => set.add(`${c.suit}-${c.rank}`))
+    seenCardKeysRef.current.set(drawingPlayer.id, set)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drawingPlayer?.id, drawingPlayer?.hand.map((c) => `${c.suit}-${c.rank}`).join(',')])
+
+  // Botit ratkaistaan yksi vuoro kerrallaan: kun tila kertoo botin olevan vuorossa,
+  // pyydetään heti palvelinta suorittamaan täsmälleen yksi botin siirto. Pelaajan oma
+  // kortti on jo tässä vaiheessa asettunut pöydälle välittömästi (ei etukäteisviivettä
+  // frontendissä) - koko "miettimisaika" tulee yksinomaan palvelimen omasta viiveestä,
+  // joka toistuu samalla tavalla myös silloin kun botti voittaa tikin ja aloittaa seuraavan.
+  useEffect(() => {
+    if (!state || !state.aiTurnPending) return
+
+    // Yksilöi tämän tarkan pelitilanteen: jos sama tilanne yrittää liipaista
+    // efektin uudelleen (esim. Strict Mode -tuplakutsu), ei lähetetä toista pyyntöä.
+    const signature = [
+      state.gameId,
+      state.phase,
+      state.playerToActId,
+      state.completedTricksCount,
+      state.players.map((p) => (p.hasDrawn ? '1' : '0')).join(''),
+    ].join('|')
+
+    if (lastAdvanceSignatureRef.current === signature) return
+    lastAdvanceSignatureRef.current = signature
+
+    const gameIdAtDispatch = state.gameId
+    ;(async () => {
+      try {
+        setIsWaitingForBots(true)
+        const data = await advanceBot(gameIdAtDispatch)
+        if (activeGameIdRef.current === gameIdAtDispatch) applyState(data)
+      } catch (e) {
+        if (activeGameIdRef.current === gameIdAtDispatch) setError(e.message)
+      } finally {
+        if (activeGameIdRef.current === gameIdAtDispatch) setIsWaitingForBots(false)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state])
 
   async function handleCreateGame() {
     try {
@@ -51,9 +150,11 @@ export default function App() {
         setError('Tarvitaan vähintään 2 pelaajaa')
         return
       }
+      lastHumanAnchorRef.current = null
+      seenCardKeysRef.current = new Map()
+      setRevealingDraw(false)
       const data = await createGame(cleanPlayers)
-      setState(data)
-      setDrawingPlayerId(data.players.find((p) => !p.ai && !p.hasDrawn)?.id ?? null)
+      applyState(data)
     } catch (e) {
       setError(e.message)
     }
@@ -71,13 +172,27 @@ export default function App() {
   async function handleSubmitDraw() {
     try {
       setError('')
+      setIsWaitingForBots(true)
       const data = await draw(state.gameId, drawingPlayerId, selectedDiscards)
       setState(data)
       setSelectedDiscards([])
-      const next = data.players.find((p) => !p.ai && !p.hasDrawn)
-      setDrawingPlayerId(next ? next.id : null)
+
+      if (data.phase === 'DEALT') {
+        // Näytä pelaajalle hetken ajan hänen lopullinen kätensä (drawingPlayerId
+        // pysyy samana), ennen kuin siirrytään seuraavaan vaihtamattomaan pelaajaan.
+        setRevealingDraw(true)
+        setTimeout(() => {
+          setRevealingDraw(false)
+          const next = data.players.find((p) => !p.ai && !p.hasDrawn)
+          setDrawingPlayerId(next ? next.id : null)
+        }, 1600)
+      } else {
+        setDrawingPlayerId(null)
+      }
     } catch (e) {
       setError(e.message)
+    } finally {
+      setIsWaitingForBots(false)
     }
   }
 
@@ -85,7 +200,7 @@ export default function App() {
     try {
       setError('')
       const data = await playCard(state.gameId, state.playerToActId, card)
-      setState(data)
+      applyState(data)
     } catch (e) {
       setError(e.message)
     }
@@ -141,7 +256,6 @@ export default function App() {
     )
   }
 
-  const drawingPlayer = state.players.find((p) => p.id === drawingPlayerId)
   const activeTrickPlayer = state.players.find((p) => p.id === state.playerToActId)
 
   return (
@@ -166,51 +280,102 @@ export default function App() {
 
       <div className="phase-banner">{PHASE_LABELS[state.phase] || state.phase}</div>
 
-      {state.phase === 'DEALT' && drawingPlayer && (
+      <div className="deck-area">
+        <CardBack count={state.deckSize} />
+      </div>
+
+      {isWaitingForBots && <p style={{ textAlign: 'center', opacity: 0.8 }}>🤖 Botit miettivät...</p>}
+
+      {state.phase === 'DEALT' && drawingPlayer && !revealingDraw && (
         <div className="player-panel">
           <p>
             <strong>{drawingPlayer.name}</strong>: valitse hylättävät kortit (0-5) ja vaihda.
-            Muut eivät katso! 🙈
           </p>
           <div className="hand">
-            {drawingPlayer.hand.map((card, i) => (
+            {drawingPlayer.hand.map((card) => (
               <CardView
-                key={i}
+                key={`${card.suit}-${card.rank}`}
                 card={card}
+                layoutId={`${card.suit}-${card.rank}`}
+                dealAnimation
+                disabled={isWaitingForBots}
                 selected={selectedDiscards.some((c) => c.suit === card.suit && c.rank === card.rank)}
                 onClick={() => toggleDiscard(card)}
               />
             ))}
           </div>
-          <button onClick={handleSubmitDraw}>
+          <button onClick={handleSubmitDraw} disabled={isWaitingForBots}>
             Vaihda {selectedDiscards.length} korttia
           </button>
         </div>
       )}
 
-      {state.phase === 'DEALT' && !drawingPlayer && (
+      {revealingDraw && drawingPlayer && (() => {
+        const seenSet = seenCardKeysRef.current.get(drawingPlayer.id) ?? new Set()
+        return (
+          <div className="player-panel">
+            <p>
+              <strong>{drawingPlayer.name}</strong>: tässä lopullinen kätesi.
+            </p>
+            <div className="hand">
+              {drawingPlayer.hand.map((card) => {
+                const key = `${card.suit}-${card.rank}`
+                return (
+                  <CardView
+                    key={key}
+                    card={card}
+                    layoutId={key}
+                    dealAnimation={!seenSet.has(key)}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        )
+      })()}
+
+      {state.phase === 'DEALT' && !drawingPlayer && !revealingDraw && (
         <p>Kaikki ovat vaihtaneet, käsitellään...</p>
       )}
 
-      {state.phase === 'TRICK_TAKING' && (() => {
+      {!revealingDraw && (state.phase === 'TRICK_TAKING' || state.phase === 'FINISHED') && (() => {
         const currentTrick = state.tricks.find((t) => t.inProgress)
+        const total = state.players.length
+
+        // Päivitä ankkuri vain kun vuorossa on ihminen - botin vuorojen aikana
+        // pöytä pysyy paikallaan eikä pyörähdä jokaisen botin kortin jälkeen.
+        if (state.phase === 'TRICK_TAKING') {
+          const toAct = state.players.find((p) => p.id === state.playerToActId)
+          if (toAct && !toAct.ai) {
+            lastHumanAnchorRef.current = toAct.id
+          }
+        }
+        const anchorId = lastHumanAnchorRef.current ?? state.players[0]?.id
+        const anchorIndex = state.players.findIndex((p) => p.id === anchorId)
+
         return (
           <>
             <div className="poker-table">
               {state.players.map((p, i) => {
                 const cards = collectSeatCards(state.tricks, p.id)
                 const isActing = p.id === state.playerToActId
+                const isTrickWinner = state.phase === 'FINISHED' && p.id === state.lastTrickWinnerId
+                const isHandWinner = state.phase === 'FINISHED' && p.id === state.bestPokerHandPlayerId
                 return (
-                  <div key={p.id} className="seat" style={seatStyle(i, state.players.length)}>
+                  <div
+                    key={p.id}
+                    className="seat"
+                    style={seatStyle(rotatedSeatIndex(i, total, anchorIndex), total)}
+                  >
                     {cards.length > 0 ? (
                       <div className="card-row">
                         {cards.map((card, idx) => (
                           <div
-                            key={idx}
+                            key={`${card.suit}-${card.rank}`}
                             className="card-row-item"
                             style={{ marginLeft: idx === 0 ? 0 : -30, zIndex: idx }}
                           >
-                            <CardView card={card} />
+                            <CardView card={card} layoutId={`${card.suit}-${card.rank}`} />
                           </div>
                         ))}
                       </div>
@@ -219,13 +384,18 @@ export default function App() {
                     )}
                     <div className={'seat-name' + (isActing ? ' active' : '')}>
                       {p.name} {p.ai && '🤖'}
+                      {isTrickWinner && ' 🏆'}
+                      {isHandWinner && ' 🃏'}
                     </div>
+                    {state.phase === 'FINISHED' && (
+                      <div className="seat-hand-label">{state.snapshotPokerHands?.[p.id]}</div>
+                    )}
                   </div>
                 )
               })}
             </div>
 
-            {activeTrickPlayer && (
+            {state.phase === 'TRICK_TAKING' && activeTrickPlayer && !activeTrickPlayer.ai && (
               <div className="player-panel">
                 <p>
                   <strong>{activeTrickPlayer.name}</strong> on vuorossa
@@ -234,41 +404,41 @@ export default function App() {
                     : ' — avaa tikki'}
                 </p>
                 <div className="hand">
-                  {activeTrickPlayer.hand.map((card, i) => (
-                    <CardView key={i} card={card} onClick={() => handlePlayCard(card)} />
+                  {activeTrickPlayer.hand.map((card) => (
+                    <CardView
+                      key={`${card.suit}-${card.rank}`}
+                      card={card}
+                      layoutId={`${card.suit}-${card.rank}`}
+                      disabled={isWaitingForBots}
+                      onClick={() => handlePlayCard(card)}
+                    />
                   ))}
                 </div>
               </div>
             )}
-            <p style={{ textAlign: 'center', opacity: 0.7 }}>
-              Tikkejä pelattu: {state.completedTricksCount} / 5
-            </p>
+
+            {state.phase === 'TRICK_TAKING' && (
+              <p style={{ textAlign: 'center', opacity: 0.7 }}>
+                Tikkejä pelattu: {state.completedTricksCount} / 5
+              </p>
+            )}
+
+            {state.phase === 'FINISHED' && (
+              <div className="result-box">
+                <p>
+                  🏆 Katkon voitti:{' '}
+                  <strong>{state.players.find((p) => p.id === state.lastTrickWinnerId)?.name}</strong> (+1 p)
+                </p>
+                <p>
+                  🃏 Parhaan pokerikäden sai:{' '}
+                  <strong>{state.players.find((p) => p.id === state.bestPokerHandPlayerId)?.name}</strong> (+1 p)
+                </p>
+                <button onClick={() => setState(null)}>Uusi peli</button>
+              </div>
+            )}
           </>
         )
       })()}
-
-      {state.phase === 'FINISHED' && (
-        <div className="result-box">
-          <h3>Kierroksen tulokset</h3>
-          <p>
-            🏆 Viimeisen tikin voitti:{' '}
-            <strong>{state.players.find((p) => p.id === state.lastTrickWinnerId)?.name}</strong> (+1 p)
-          </p>
-          <p>
-            🃏 Parhaan pokerikäden sai:{' '}
-            <strong>{state.players.find((p) => p.id === state.bestPokerHandPlayerId)?.name}</strong> (+1 p)
-          </p>
-          <h4>Kädet vaihdon jälkeen:</h4>
-          <ul>
-            {state.players.map((p) => (
-              <li key={p.id}>
-                {p.name}: {state.snapshotPokerHands?.[p.id]}
-              </li>
-            ))}
-          </ul>
-          <button onClick={() => setState(null)}>Uusi peli</button>
-        </div>
-      )}
     </div>
   )
 }

@@ -66,6 +66,7 @@ public class GameEngine {
 
         player.removeCards(discards);
         player.addCards(deck.draw(discards.size()));
+        deck.addToBottom(discards); // hylätyt kortit pakan pohjalle, eivät heti uudelleen nostettavaksi
         playersWhoHaveDrawn.add(playerId);
 
         if (playersWhoHaveDrawn.size() == players.size()) {
@@ -200,5 +201,9 @@ public class GameEngine {
 
     public Set<String> getPlayersWhoHaveDrawn() {
         return playersWhoHaveDrawn;
+    }
+
+    public int getDeckSize() {
+        return deck.remaining();
     }
 }

@@ -45,6 +45,14 @@ public class Deck {
         return drawn;
     }
 
+    /**
+     * Lisää kortit pakan pohjalle (esim. pokerivaihdossa hylätyt kortit).
+     * draw() nostaa pakan päältä (poll = pään kortti), joten "pohja" on jonon häntä.
+     */
+    public void addToBottom(List<Card> cardsToAdd) {
+        cards.addAll(cardsToAdd);
+    }
+
     public int remaining() {
         return cards.size();
     }
