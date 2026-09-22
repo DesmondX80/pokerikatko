@@ -11,7 +11,6 @@ const PHASE_LABELS = {
 
 function seatStyle(index, total) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2
-  // Vähennetty hieman vertikaalisädettä (ry=34), jotta kortit pysyvät hyvin pöydällä
   const rx = 38
   const ry = 34
   const left = 50 + rx * Math.cos(angle)
@@ -30,9 +29,10 @@ function rotatedSeatIndex(originalIndex, total, anchorIndex) {
 
 function collectSeatCards(tricks, playerId) {
   const cards = []
+  if (!tricks || !Array.isArray(tricks)) return cards
   for (const trick of tricks) {
-    const play = trick.plays.find((p) => p.playerId === playerId)
-    if (play) cards.push(play.card)
+    const play = trick.plays?.find((p) => p.playerId === playerId)
+    if (play && play.card) cards.push(play.card)
   }
   return cards
 }
@@ -45,14 +45,20 @@ export default function App() {
   ])
   const [error, setError] = useState('')
 
+  const [targetScore, setTargetScore] = useState(5)
+  const [matchScores, setMatchScores] = useState({})
+  const roundProcessedRef = useRef(false)
+
   const [drawingPlayerId, setDrawingPlayerId] = useState(null)
   const [selectedDiscards, setSelectedDiscards] = useState([])
   const [isWaitingForBots, setIsWaitingForBots] = useState(false)
   const [playingCardKey, setPlayingCardKey] = useState(null)
+
   const [transitionPhase, setTransitionPhase] = useState('IDLE')
   const [animDiscards, setAnimDiscards] = useState([])
   const [animDraws, setAnimDraws] = useState([])
   const [tempHand, setTempHand] = useState([])
+
   const lastAdvanceSignatureRef = useRef(null)
   const activeGameIdRef = useRef(null)
   activeGameIdRef.current = state ? state.gameId : null
@@ -61,25 +67,52 @@ export default function App() {
   function applyState(data) {
     setState(data)
     setPlayingCardKey(null)
-    if (data.phase === 'DEALT') {
-      const next = data.players.find((p) => !p.ai && !p.hasDrawn)
+    if (data && data.phase === 'DEALT') {
+      const next = data.players?.find((p) => !p.hasDrawn)
       setDrawingPlayerId(next ? next.id : null)
     } else {
       setDrawingPlayerId(null)
     }
   }
 
-  const drawingPlayer = state?.players.find((p) => p.id === drawingPlayerId)
-
+  // Pisteiden laskenta kierroksen lopussa
   useEffect(() => {
-    if (!state || !state.aiTurnPending || transitionPhase !== 'IDLE') return
+    if (state?.phase === 'FINISHED' && !roundProcessedRef.current) {
+      roundProcessedRef.current = true;
+      setMatchScores((prev) => {
+        const newScores = { ...prev };
+        const trickWinner = state.players?.find(p => p.id === state.lastTrickWinnerId);
+        const handWinner = state.players?.find(p => p.id === state.bestPokerHandPlayerId);
+
+        if (trickWinner) {
+          newScores[trickWinner.name] = (newScores[trickWinner.name] || 0) + 1;
+        }
+        if (handWinner) {
+          newScores[handWinner.name] = (newScores[handWinner.name] || 0) + 1;
+        }
+        return newScores;
+      });
+    }
+  }, [state]);
+
+  // Bottilogiikka
+  useEffect(() => {
+    const currentDrawingPlayer = state?.phase === 'DEALT'
+        ? state.players?.find(p => p.id === drawingPlayerId)
+        : null;
+
+    const isBotDrawing = state?.phase === 'DEALT' && currentDrawingPlayer?.ai;
+    const isBotPlayingTrick = state?.phase === 'TRICK_TAKING' && state.playerToActId && state.players?.find(p => p.id === state.playerToActId)?.ai;
+
+    if (!state || transitionPhase !== 'IDLE') return
+    if (!state.aiTurnPending && !isBotDrawing) return
 
     const signature = [
       state.gameId,
       state.phase,
       state.playerToActId,
       state.completedTricksCount,
-      state.players.map((p) => (p.hasDrawn ? '1' : '0')).join(''),
+      state.players?.map((p) => (p.hasDrawn ? '1' : '0')).join(''),
     ].join('|')
 
     if (lastAdvanceSignatureRef.current === signature) return
@@ -89,7 +122,42 @@ export default function App() {
     ;(async () => {
       try {
         setIsWaitingForBots(true)
+
+        if (isBotPlayingTrick) {
+          await new Promise(resolve => setTimeout(resolve, 800))
+        }
+
         const data = await advanceBot(gameIdAtDispatch)
+        if (activeGameIdRef.current !== gameIdAtDispatch) return;
+
+        if (state.phase === 'DEALT' && isBotDrawing && currentDrawingPlayer) {
+          const oldBot = currentDrawingPlayer;
+          const newBot = data.players?.find(p => p.id === oldBot.id);
+
+          if (oldBot && newBot && oldBot.hand && newBot.hand) {
+            const oldKeys = new Set(oldBot.hand.map(c => `${c.suit}-${c.rank}`))
+            const newKeys = new Set(newBot.hand.map(c => `${c.suit}-${c.rank}`))
+
+            const discards = oldBot.hand.filter(c => !newKeys.has(`${c.suit}-${c.rank}`))
+            const draws = newBot.hand.filter(c => !oldKeys.has(`${c.suit}-${c.rank}`))
+
+            if (discards.length > 0) {
+              setAnimDiscards(discards)
+              setTransitionPhase('DISCARDING')
+              await new Promise(r => setTimeout(r, 700))
+            }
+            if (draws.length > 0) {
+              setAnimDraws(draws)
+              setTransitionPhase('DRAW_PREPARE')
+              await new Promise(r => setTimeout(r, 50))
+              setTempHand(newBot.hand)
+              setTransitionPhase('DRAWING')
+              await new Promise(r => setTimeout(r, 700))
+            }
+            setTransitionPhase('IDLE')
+          }
+        }
+
         if (activeGameIdRef.current === gameIdAtDispatch) applyState(data)
       } catch (e) {
         if (activeGameIdRef.current === gameIdAtDispatch) setError(e.message)
@@ -97,8 +165,7 @@ export default function App() {
         if (activeGameIdRef.current === gameIdAtDispatch) setIsWaitingForBots(false)
       }
     })()
-
-  }, [state, transitionPhase])
+  }, [state, transitionPhase, drawingPlayerId])
 
   async function handleCreateGame() {
     try {
@@ -110,12 +177,38 @@ export default function App() {
         setError('Tarvitaan vähintään 2 pelaajaa')
         return
       }
-      lastHumanAnchorRef.current = null
+
+      const initialScores = {};
+      cleanPlayers.forEach(p => initialScores[p.name] = 0);
+      setMatchScores(initialScores);
+      roundProcessedRef.current = false;
+      lastHumanAnchorRef.current = null;
 
       setTransitionPhase('IDLE')
       setAnimDiscards([])
       setAnimDraws([])
       setTempHand([])
+
+      const data = await createGame(cleanPlayers)
+      applyState(data)
+    } catch (e) {
+      setError(e.message)
+    }
+  }
+
+  async function handleNextRound() {
+    try {
+      setError('')
+      setTransitionPhase('IDLE')
+      setAnimDiscards([])
+      setAnimDraws([])
+      setTempHand([])
+      roundProcessedRef.current = false;
+      lastHumanAnchorRef.current = null;
+
+      const cleanPlayers = players
+          .map((p) => ({ name: p.name.trim(), ai: p.ai }))
+          .filter((p) => p.name)
 
       const data = await createGame(cleanPlayers)
       applyState(data)
@@ -149,9 +242,9 @@ export default function App() {
       }
 
       const data = await draw(state.gameId, drawingPlayerId, discards)
-      const updatedPlayer = data.players.find(p => p.id === drawingPlayerId)
+      const updatedPlayer = data.players?.find(p => p.id === drawingPlayerId)
       const oldKeys = new Set(currentHand.map(c => `${c.suit}-${c.rank}`))
-      const newCards = updatedPlayer.hand.filter(c => !oldKeys.has(`${c.suit}-${c.rank}`))
+      const newCards = updatedPlayer?.hand?.filter(c => !oldKeys.has(`${c.suit}-${c.rank}`)) || []
 
       if (discards.length > 0) {
         await new Promise(resolve => setTimeout(resolve, 700))
@@ -202,6 +295,38 @@ export default function App() {
             <p className="subtitle">Pokerivaihto + tikkipeli samoilla korteilla</p>
             <div className="setup">
               {error && <div className="error">{error}</div>}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px', width: '100%' }}>
+                <label style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.7)', paddingBottom: '4px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  Pelin pituus (pisteitä):
+                </label>
+                <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+                  {[5, 10, 20].map(pts => (
+                      <div
+                          key={pts}
+                          onClick={() => setTargetScore(pts)}
+                          style={{
+                            flex: 1,
+                            background: targetScore === pts ? 'rgba(253, 216, 53, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                            border: `1px solid ${targetScore === pts ? '#fdd835' : 'rgba(255, 255, 255, 0.2)'}`,
+                            color: targetScore === pts ? '#fdd835' : '#fff',
+                            padding: '10px 0',
+                            boxShadow: targetScore === pts ? '0 0 10px rgba(253, 216, 53, 0.2)' : 'none',
+                            margin: 0,
+                            borderRadius: '10px',
+                            textAlign: 'center',
+                            cursor: 'pointer',
+                            fontWeight: 'bold',
+                            userSelect: 'none',
+                            whiteSpace: 'nowrap'
+                          }}
+                      >
+                        {pts} p
+                      </div>
+                  ))}
+                </div>
+              </div>
+
               {players.map((player, i) => (
                   <div key={i} className="player-row">
                     <input
@@ -240,6 +365,7 @@ export default function App() {
               ))}
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 <button
+                    type="button"
                     onClick={() =>
                         setPlayers([...players, { name: `Pelaaja ${players.length + 1}`, ai: false }])
                     }
@@ -247,10 +373,10 @@ export default function App() {
                   + Lisää pelaaja
                 </button>
                 {players.length > 2 && (
-                    <button onClick={() => setPlayers(players.slice(0, -1))}>- Poista</button>
+                    <button type="button" onClick={() => setPlayers(players.slice(0, -1))}>- Poista</button>
                 )}
               </div>
-              <button onClick={handleCreateGame}>Jaa kortit ja aloita</button>
+              <button type="button" onClick={handleCreateGame}>Jaa kortit ja aloita</button>
             </div>
           </div>
         </div>
@@ -258,17 +384,18 @@ export default function App() {
   }
 
   const currentPhase = transitionPhase !== 'IDLE' ? 'DEALT' : state.phase
+  const drawingPlayer = state?.players?.find((p) => p.id === drawingPlayerId)
 
   return (
       <div className="app-container">
-        {/* VASEN SIVUPANEELI: OTSIKKO JA PISTEET */}
+        {/* VASEN SIVUPANEELI */}
         <aside className="sidebar">
           <div className="sidebar-header">
             <h1>🂡 Pokerikatko</h1>
           </div>
           <div className="scoreboard">
-            <h3>Pisteet</h3>
-            {state.players.map((p) => (
+            <h3>Pisteet (Tavoite: {targetScore})</h3>
+            {state.players?.map((p) => (
                 <div
                     key={p.id}
                     className={
@@ -279,7 +406,7 @@ export default function App() {
                   <div className="name">
                     {p.name} {p.ai && '🤖'}
                   </div>
-                  <div className="score">{p.score} p</div>
+                  <div className="score">{matchScores[p.name] || 0} p</div>
                 </div>
             ))}
           </div>
@@ -317,28 +444,36 @@ export default function App() {
                     {/* PAKKA KESKELLÄ PÖYTÄÄ */}
                     <div className="deck-area">
                       {(transitionPhase === 'DISCARDING' || transitionPhase === 'DRAW_PREPARE') &&
-                          animDiscards.map((card) => (
-                              <div
-                                  key={`${card.suit}-${card.rank}`}
-                                  style={{ position: 'absolute', zIndex: 1 }}
-                              >
-                                <CardView card={card} layoutId={`${card.suit}-${card.rank}`} />
-                              </div>
-                          ))}
+                          animDiscards.map((card) => {
+                            const key = `${card.suit}-${card.rank}`
+                            return (
+                                <div key={key} style={{ position: 'absolute', zIndex: 1 }}>
+                                  {drawingPlayer?.ai ? (
+                                      <CardBack layoutId={key} />
+                                  ) : (
+                                      <CardView card={card} layoutId={key} />
+                                  )}
+                                </div>
+                            )
+                          })}
 
                       <div style={{ position: 'relative', zIndex: 10 }}>
                         <CardBack count={state.deckSize} />
                       </div>
 
                       {transitionPhase === 'DRAW_PREPARE' &&
-                          animDraws.map((card, i) => (
-                              <div
-                                  key={`${card.suit}-${card.rank}`}
-                                  style={{ position: 'absolute', zIndex: 11 + i }}
-                              >
-                                <CardView card={card} layoutId={`${card.suit}-${card.rank}`} />
-                              </div>
-                          ))}
+                          animDraws.map((card, i) => {
+                            const key = `${card.suit}-${card.rank}`
+                            return (
+                                <div key={key} style={{ position: 'absolute', zIndex: 11 + i }}>
+                                  {drawingPlayer?.ai ? (
+                                      <CardBack layoutId={key} />
+                                  ) : (
+                                      <CardView card={card} layoutId={key} />
+                                  )}
+                                </div>
+                            )
+                          })}
                     </div>
 
                     {state.players.map((p, i) => {
@@ -360,7 +495,7 @@ export default function App() {
                                 isCurrentDrawing ? (
                                     <div className="card-row">
                                       {(() => {
-                                        let displayHand = p.hand
+                                        let displayHand = p.hand || []
                                         if (
                                             transitionPhase === 'DISCARDING' ||
                                             transitionPhase === 'DRAW_PREPARE'
@@ -379,39 +514,49 @@ export default function App() {
                                           const isSelected = selectedDiscards.some(
                                               (c) => c.suit === card.suit && c.rank === card.rank
                                           )
+                                          const key = `${card.suit}-${card.rank}`
                                           return (
                                               <div
-                                                  key={`${card.suit}-${card.rank}`}
+                                                  key={key}
                                                   className="card-row-item"
                                                   style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
                                               >
-                                                <CardView
-                                                    card={card}
-                                                    layoutId={`${card.suit}-${card.rank}`}
-                                                    selected={isSelected && transitionPhase === 'IDLE'}
-                                                    onClick={() => toggleDiscard(card)}
-                                                />
+                                                {p.ai ? (
+                                                    <CardBack layoutId={key} />
+                                                ) : (
+                                                    <CardView
+                                                        card={card}
+                                                        layoutId={key}
+                                                        selected={isSelected && transitionPhase === 'IDLE'}
+                                                        onClick={() => toggleDiscard(card)}
+                                                    />
+                                                )}
                                               </div>
                                           )
                                         })
                                       })()}
                                     </div>
                                 ) : (
-                                    // Vastustajan käsi limittäin
                                     <div className="card-row">
-                                      {p.hand.map((card, idx) => (
-                                          <div
-                                              key={`${card.suit}-${card.rank}`}
-                                              className="card-row-item"
-                                              style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
-                                          >
-                                            <CardBack />
-                                          </div>
-                                      ))}
+                                      {p.hand?.map((card, idx) => {
+                                        const key = `${card.suit}-${card.rank}`
+                                        return (
+                                            <div
+                                                key={key}
+                                                className="card-row-item"
+                                                style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
+                                            >
+                                              {!p.ai && isHumanSelf ? (
+                                                  <CardView card={card} layoutId={key} />
+                                              ) : (
+                                                  <CardBack layoutId={key} />
+                                              )}
+                                            </div>
+                                        )
+                                      })}
                                     </div>
                                 )
                             ) : (
-                                // TRICK_TAKING TAI FINISHED -VAIHE
                                 <div
                                     style={{
                                       display: 'flex',
@@ -420,38 +565,40 @@ export default function App() {
                                       gap: '6px',
                                     }}
                                 >
-                                  {!isHumanSelf && p.hand.length > 0 && (
+                                  {!isHumanSelf && p.hand && p.hand.length > 0 && (
                                       <div className="card-row">
-                                        {p.hand.map((card, idx) => (
-                                            <div
-                                                key={`back-${card.suit}-${card.rank}`}
-                                                className="card-row-item"
-                                                style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
-                                            >
-                                              <CardBack />
-                                            </div>
-                                        ))}
+                                        {p.hand.map((card, idx) => {
+                                          const key = `${card.suit}-${card.rank}`
+                                          return (
+                                              <div
+                                                  key={key}
+                                                  className="card-row-item"
+                                                  style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
+                                              >
+                                                <CardBack layoutId={key} />
+                                              </div>
+                                          )
+                                        })}
                                       </div>
                                   )}
 
-                                  {/* Pöytään pelatut kortit */}
                                   {(() => {
                                     const playedCards = collectSeatCards(state.tricks, p.id)
                                     if (playedCards.length > 0) {
                                       return (
                                           <div className="card-row">
-                                            {playedCards.map((card, idx) => (
-                                                <div
-                                                    key={`${card.suit}-${card.rank}`}
-                                                    className="card-row-item"
-                                                    style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
-                                                >
-                                                  <CardView
-                                                      card={card}
-                                                      layoutId={`${card.suit}-${card.rank}`}
-                                                  />
-                                                </div>
-                                            ))}
+                                            {playedCards.map((card, idx) => {
+                                              const key = `${card.suit}-${card.rank}`
+                                              return (
+                                                  <div
+                                                      key={key}
+                                                      className="card-row-item"
+                                                      style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
+                                                  >
+                                                    <CardView card={card} layoutId={key} />
+                                                  </div>
+                                              )
+                                            })}
                                           </div>
                                       )
                                     } else {
@@ -480,8 +627,7 @@ export default function App() {
                     })}
                   </div>
 
-                  {/* OHJAUSPANEELI ALHAALLA */}
-                  {currentPhase === 'DEALT' && drawingPlayer && transitionPhase === 'IDLE' && (
+                  {currentPhase === 'DEALT' && drawingPlayer && transitionPhase === 'IDLE' && !drawingPlayer.ai && (
                       <div className="player-panel">
                         <p>
                           <strong>{drawingPlayer.name}</strong>: valitse hylättävät kortit (0-5)
@@ -512,7 +658,7 @@ export default function App() {
                         <p>
                           <strong>{humanPlayer.name}</strong>{' '}
                           {isMyTurn ? (
-                              state.tricks.find((t) => t.inProgress)?.ledSuit
+                              state.tricks?.find((t) => t.inProgress)?.ledSuit
                                   ? `on vuorossa — tunnusta väri ${
                                       state.tricks.find((t) => t.inProgress).ledSuit
                                   } jos mahdollista`
@@ -522,7 +668,7 @@ export default function App() {
                           )}
                         </p>
                         <div className="hand">
-                          {humanPlayer.hand.map((card) => {
+                          {humanPlayer.hand?.map((card) => {
                             const cardKey = `${card.suit}-${card.rank}`
                             const isBeingPlayed = cardKey === playingCardKey
                             return (
@@ -545,25 +691,48 @@ export default function App() {
                       </p>
                   )}
 
-                  {currentPhase === 'FINISHED' && (
-                      <div className="result-box">
-                        <p>
-                          🏆 Katkon voitti:{' '}
-                          <strong>
-                            {state.players.find((p) => p.id === state.lastTrickWinnerId)?.name}
-                          </strong>{' '}
-                          (+1 p)
-                        </p>
-                        <p>
-                          🃏 Parhaan pokerikäden sai:{' '}
-                          <strong>
-                            {state.players.find((p) => p.id === state.bestPokerHandPlayerId)?.name}
-                          </strong>{' '}
-                          (+1 p)
-                        </p>
-                        <button onClick={() => setState(null)}>Uusi peli</button>
-                      </div>
-                  )}
+                  {currentPhase === 'FINISHED' && (() => {
+                    const scoresArr = Object.values(matchScores || {});
+                    const highestScore = scoresArr.length > 0 ? Math.max(...scoresArr) : 0;
+                    let matchWinners = [];
+                    if (highestScore >= targetScore && scoresArr.length > 0) {
+                      matchWinners = Object.keys(matchScores).filter(name => matchScores[name] === highestScore);
+                    }
+
+                    return (
+                        <div className="result-box">
+                          {matchWinners.length > 0 ? (
+                              <>
+                                <h2 style={{ color: '#fdd835', margin: '0 0 10px 0', fontSize: '1.4rem' }}>
+                                  🎉 {matchWinners.join(' ja ')} voitti pelin! 🎉
+                                </h2>
+                                <p style={{ marginBottom: '15px' }}>
+                                  Kokonaispisteet saavutettiin: {highestScore} / {targetScore}
+                                </p>
+                                <button onClick={() => setState(null)}>Palaa valikkoon</button>
+                              </>
+                          ) : (
+                              <>
+                                <p>
+                                  🏆 Katkon voitti:{' '}
+                                  <strong>
+                                    {state.players?.find((p) => p.id === state.lastTrickWinnerId)?.name}
+                                  </strong>{' '}
+                                  (+1 p)
+                                </p>
+                                <p>
+                                  🃏 Parhaan pokerikäden sai:{' '}
+                                  <strong>
+                                    {state.players?.find((p) => p.id === state.bestPokerHandPlayerId)?.name}
+                                  </strong>{' '}
+                                  (+1 p)
+                                </p>
+                                <button onClick={handleNextRound}>Seuraava kierros</button>
+                              </>
+                          )}
+                        </div>
+                    );
+                  })()}
                 </>
             )
           })()}

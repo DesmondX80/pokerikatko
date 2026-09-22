@@ -72,11 +72,15 @@ export default function CardView({ card, selected, disabled, onClick, layoutId, 
 }
 
 // Yksittäinen selkäpuoli-kortti pakan visualisointiin (ei tiettyä arvoa).
-export function CardBack({ count }) {
+export function CardBack({ layoutId, count }) {
   return (
-    <div className="card card-static-back">
-      <div className="card-face-back" />
-      {typeof count === 'number' && <div className="deck-count">{count}</div>}
-    </div>
+      // Muuta uloin div -> motion.div ja lisää layoutId
+      <motion.div
+          layoutId={layoutId}
+          className="card card-static-back"
+      >
+        {/* Pidä komponentin sisäosat ennallaan! Esim: */}
+        {count > 1 && <div className="deck-count">{count}</div>}
+      </motion.div>
   )
 }
