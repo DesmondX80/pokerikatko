@@ -293,6 +293,8 @@ body, html, #root {
   user-select: none;
   font-family: Arial, sans-serif;
   color: #111111;
+  border-radius: 10px; /* Lisätty pyöristys koko korttirungolle */
+  overflow: hidden;    /* Varmistaa, että sisältö pysyy kauniisti pyöristysten sisällä */
 }
 
 .card.red {
@@ -320,6 +322,7 @@ body, html, #root {
   height: 100%;
   position: relative;
   transform-style: preserve-3d;
+  border-radius: 10px; /* Varmistus sisäosalle */
 }
 
 .card-face {
@@ -327,8 +330,9 @@ body, html, #root {
   width: 100%;
   height: 100%;
   backface-visibility: hidden;
-  border-radius: 8px;
+  border-radius: 10px; /* Yhtenäistetty pyöristys kaikille kasvoille */
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 /* --- ETUPUOLI JA ABSOLUUTTISET KULMAT --- */
