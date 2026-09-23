@@ -6,19 +6,19 @@ const SUIT_SYMBOLS = {
   RUUTU: '♦',
   RISTI: '♣',
   PATA: '♠',
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+  spades: '♠'
 }
 
 const RANK_LABELS = {
   TWO: '2', THREE: '3', FOUR: '4', FIVE: '5', SIX: '6', SEVEN: '7',
   EIGHT: '8', NINE: '9', TEN: '10', JACK: 'J', QUEEN: 'Q', KING: 'K', ACE: 'A',
+  2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9', 10: '10',
+  J: 'J', Q: 'Q', K: 'K', A: 'A'
 }
 
-// layoutId yksilöi tämän tietyn kortin (esim. "PATA-ACE") koko sovelluksen laajuisesti.
-// Kun sama layoutId ilmestyy toiseen kohtaan DOM-puuta (esim. kädestä pöydälle),
-// Framer Motion animoi siirtymän automaattisesti vanhasta paikasta uuteen.
-//
-// dealAnimation: jos true, kortti näytetään aluksi selkäpuoli ylöspäin ja käännetään
-// oikeinpäin pian sen jälkeen kun komponentti on ilmestynyt (= kortti "saapuu käteen").
 export default function CardView({ card, selected, disabled, onClick, layoutId, dealAnimation }) {
   const [revealed, setRevealed] = useState(!dealAnimation)
 
@@ -31,55 +31,52 @@ export default function CardView({ card, selected, disabled, onClick, layoutId, 
   }, [])
 
   if (!card) return null
-  const isRed = card.suit === 'HERTTA' || card.suit === 'RUUTU'
+  const isRed = card.suit === 'HERTTA' || card.suit === 'RUUTU' || card.suit === 'hearts' || card.suit === 'diamonds'
   const classes = ['card']
   if (isRed) classes.push('red')
   if (selected) classes.push('selected')
   if (disabled) classes.push('disabled')
 
-  const suit = SUIT_SYMBOLS[card.suit] || card.suit
-  const rank = RANK_LABELS[card.rank] || card.rank
+  const suit = SUIT_SYMBOLS[card.suit] || card.suit || '?'
+  const rank = RANK_LABELS[card.rank] || card.rank || '?'
 
   return (
-    <motion.div
-      layoutId={layoutId}
-      layout
-      animate={{ y: selected ? -8 : 0 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-      className={classes.join(' ')}
-      onClick={disabled ? undefined : onClick}
-    >
       <motion.div
-        className="card-flip-inner"
-        animate={{ rotateY: revealed ? 0 : 180 }}
-        transition={{ duration: 0.4 }}
+          layoutId={layoutId}
+          layout
+          animate={{ y: selected ? -8 : 0 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+          className={classes.join(' ')}
+          onClick={disabled ? undefined : onClick}
       >
-        <div className="card-face card-face-front">
-          <div className="card-corner card-corner-top">
-            <div className="card-corner-rank">{rank}</div>
-            <div className="card-corner-suit">{suit}</div>
+        <motion.div
+            className="card-flip-inner"
+            animate={{ rotateY: revealed ? 0 : 180 }}
+            transition={{ duration: 0.4 }}
+        >
+          <div className="card-face card-face-front">
+            <div className="card-corner card-corner-top">
+              <div className="card-corner-rank">{rank}</div>
+              <div className="card-corner-suit">{suit}</div>
+            </div>
+            <div className="card-center-suit">{suit}</div>
+            <div className="card-corner card-corner-bottom">
+              <div className="card-corner-rank">{rank}</div>
+              <div className="card-corner-suit">{suit}</div>
+            </div>
           </div>
-          <div className="card-center-suit">{suit}</div>
-          <div className="card-corner card-corner-bottom">
-            <div className="card-corner-rank">{rank}</div>
-            <div className="card-corner-suit">{suit}</div>
-          </div>
-        </div>
-        <div className="card-face card-face-back" />
+          <div className="card-face card-face-back" />
+        </motion.div>
       </motion.div>
-    </motion.div>
   )
 }
 
-// Yksittäinen selkäpuoli-kortti pakan visualisointiin (ei tiettyä arvoa).
 export function CardBack({ layoutId, count }) {
   return (
-      // Muuta uloin div -> motion.div ja lisää layoutId
       <motion.div
           layoutId={layoutId}
           className="card card-static-back"
       >
-        {/* Pidä komponentin sisäosat ennallaan! Esim: */}
         {count > 1 && <div className="deck-count">{count}</div>}
       </motion.div>
   )
