@@ -1,4 +1,5 @@
-const API_URL = 'https://pokerikatko-backend.<tunnuksesi>.workers.dev';
+const BASE_URL = 'https://pokerikatko-backend.<sinun-tunnuksesi>.workers.dev/api';
+const API_URL = 'https://pokerikatko-backend.d874123151f7438abcb219b827ccf08a.workers.dev';
 
 async function handle(response) {
   const data = await response.json()
