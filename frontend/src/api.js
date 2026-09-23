@@ -1,4 +1,4 @@
-const BASE_URL = 'http://localhost:8080/api/games'
+const API_URL = 'https://pokerikatko-backend.<tunnuksesi>.workers.dev';
 
 async function handle(response) {
   const data = await response.json()

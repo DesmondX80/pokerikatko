@@ -12,7 +12,7 @@ const PHASE_LABELS = {
 function seatStyle(index, total) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2
   const rx = 38
-  const ry = 34
+  const ry = 28 // Pienennetty säde, jotta yläreunan kortit mahtuvat pöydälle
   const left = 50 + rx * Math.cos(angle)
   const top = 50 + ry * Math.sin(angle)
   return { left: `${left}%`, top: `${top}%` }
@@ -118,7 +118,12 @@ export default function App() {
     if (lastAdvanceSignatureRef.current === signature) return
     lastAdvanceSignatureRef.current = signature
 
-    const gameIdAtDispatch = state.gameId
+    const gameIdAtDispatch = state.gameId;
+
+    // Otetaan botin vanha käsi kopiona talteen ennen tilan päivittämistä,
+    // jotta tiedämme täsmälleen mitkä kortit hylättiin animaatiota varten.
+    const oldBotHand = currentDrawingPlayer?.hand ? [...currentDrawingPlayer.hand] : [];
+
     ;(async () => {
       try {
         setIsWaitingForBots(true)
@@ -131,14 +136,13 @@ export default function App() {
         if (activeGameIdRef.current !== gameIdAtDispatch) return;
 
         if (state.phase === 'DEALT' && isBotDrawing && currentDrawingPlayer) {
-          const oldBot = currentDrawingPlayer;
-          const newBot = data.players?.find(p => p.id === oldBot.id);
+          const newBot = data.players?.find(p => p.id === currentDrawingPlayer.id);
 
-          if (oldBot && newBot && oldBot.hand && newBot.hand) {
-            const oldKeys = new Set(oldBot.hand.map(c => `${c.suit}-${c.rank}`))
+          if (newBot && newBot.hand) {
+            const oldKeys = new Set(oldBotHand.map(c => `${c.suit}-${c.rank}`))
             const newKeys = new Set(newBot.hand.map(c => `${c.suit}-${c.rank}`))
 
-            const discards = oldBot.hand.filter(c => !newKeys.has(`${c.suit}-${c.rank}`))
+            const discards = oldBotHand.filter(c => !newKeys.has(`${c.suit}-${c.rank}`))
             const draws = newBot.hand.filter(c => !oldKeys.has(`${c.suit}-${c.rank}`))
 
             if (discards.length > 0) {
@@ -232,7 +236,8 @@ export default function App() {
       setError('')
       setIsWaitingForBots(true)
 
-      const currentHand = drawingPlayer ? drawingPlayer.hand : []
+      // Varmistetaan pelaajan omien korttien turvallinen kopio animaatiota varten
+      const currentHand = drawingPlayer?.hand ? [...drawingPlayer.hand] : []
       const discards = [...selectedDiscards]
       setSelectedDiscards([])
 
@@ -415,9 +420,6 @@ export default function App() {
         {/* OIKEA PUOLI: PELIALUE */}
         <main className="game-area">
           {error && <div className="error">{error}</div>}
-
-          <div className="phase-banner">{PHASE_LABELS[currentPhase] || currentPhase}</div>
-
           {(currentPhase === 'DEALT' ||
               currentPhase === 'TRICK_TAKING' ||
               currentPhase === 'FINISHED') && (() => {
@@ -683,12 +685,6 @@ export default function App() {
                           })}
                         </div>
                       </div>
-                  )}
-
-                  {currentPhase === 'TRICK_TAKING' && (
-                      <p style={{ textAlign: 'center', opacity: 0.7, margin: '5px 0' }}>
-                        Tikkejä pelattu: {state.completedTricksCount} / 5
-                      </p>
                   )}
 
                   {currentPhase === 'FINISHED' && (() => {
