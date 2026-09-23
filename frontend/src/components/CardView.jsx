@@ -37,8 +37,8 @@ export default function CardView({ card, selected, disabled, onClick, layoutId, 
   if (selected) classes.push('selected')
   if (disabled) classes.push('disabled')
 
-  const suit = SUIT_SYMBOLS[card.suit]
-  const rank = RANK_LABELS[card.rank]
+  const suit = SUIT_SYMBOLS[card.suit] || card.suit
+  const rank = RANK_LABELS[card.rank] || card.rank
 
   return (
     <motion.div
