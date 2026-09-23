@@ -1,4 +1,4 @@
-const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev/api';
+const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev';
 const API_URL = 'https://pokerikatko-backend.d874123151f7438abcb219b827ccf08a.workers.dev';
 
 async function handle(response) {
