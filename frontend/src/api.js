@@ -1,4 +1,4 @@
-const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev'
+const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev/api'
 
 async function handle(response) {
   let data
@@ -15,7 +15,7 @@ async function handle(response) {
 }
 
 export async function createGame(players) {
-  const res = await fetch(`${BASE_URL}/`, {
+  const res = await fetch(`${BASE_URL}/createGame`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ players }),
