@@ -1,12 +1,11 @@
-const BASE_URL = 'https://pokerikatko-backend.d874123151f7438abcb219b827ccf08a.workers.dev'
+const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev'
 
 async function handle(response) {
   let data
   try {
     data = await response.json()
   } catch (e) {
-    // Jos vastaus ei ollut JSONia (esim. HTML/teksti-virhesivu)
-    throw new Error(`Palvelinvirhe statuskoodilla ${response.status}`)
+    throw new Error(`Palvelinvirhe (status ${response.status})`)
   }
 
   if (!response.ok) {
