@@ -1,8 +1,14 @@
-const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev';
-const API_URL = 'https://pokerikatko-backend.d874123151f7438abcb219b827ccf08a.workers.dev';
+const BASE_URL = 'https://pokerikatko-backend.d874123151f7438abcb219b827ccf08a.workers.dev'
 
 async function handle(response) {
-  const data = await response.json()
+  let data
+  try {
+    data = await response.json()
+  } catch (e) {
+    // Jos vastaus ei ollut JSONia (esim. HTML/teksti-virhesivu)
+    throw new Error(`Palvelinvirhe statuskoodilla ${response.status}`)
+  }
+
   if (!response.ok) {
     throw new Error(data.error || 'Tuntematon virhe')
   }
@@ -10,8 +16,7 @@ async function handle(response) {
 }
 
 export async function createGame(players) {
-  // players: [{ name: string, ai: boolean }, ...]
-  const res = await fetch(BASE_URL, {
+  const res = await fetch(`${BASE_URL}/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ players }),
@@ -42,9 +47,6 @@ export async function playCard(gameId, playerId, card) {
   return handle(res)
 }
 
-// Pyytää palvelinta suorittamaan yhden (ja vain yhden) botin vuoron, jos sellainen
-// on juuri nyt vireillä. Kutsutaan pienellä viiveellä edellisen kortin/siirron
-// jälkeen, jotta botit "miettivät" vasta edellisen animaation asetuttua.
 export async function advanceBot(gameId) {
   const res = await fetch(`${BASE_URL}/${gameId}/advance-bot`, {
     method: 'POST',
