@@ -9,6 +9,13 @@ const PHASE_LABELS = {
   FINISHED: 'Kierros päättyi',
 }
 
+const SUIT_ORDER = { HERTTA: 1, RUUTU: 2, RISTI: 3, PATA: 4 }
+const RANK_ORDER = {
+  TWO: 0, THREE: 1, FOUR: 2, FIVE: 3,
+  SIX: 4, SEVEN: 5, EIGHT: 6, NINE: 7, TEN: 8,
+  JACK: 9, QUEEN: 10, KING: 11, ACE: 12
+}
+
 function seatStyle(index, total) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2
   const rx = 38
@@ -44,7 +51,7 @@ export default function App() {
     { name: 'Pelaaja 2', ai: false },
   ])
   const [error, setError] = useState('')
-
+  const [sortBy, setSortBy] = useState('suit') // 'suit' tai 'rank'
   const [targetScore, setTargetScore] = useState(5)
   const [matchScores, setMatchScores] = useState({})
   const roundProcessedRef = useRef(false)
@@ -368,18 +375,25 @@ export default function App() {
                     </label>
                   </div>
               ))}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                <button
-                    type="button"
-                    onClick={() =>
-                        setPlayers([...players, { name: `Pelaaja ${players.length + 1}`, ai: false }])
-                    }
-                >
-                  + Lisää pelaaja
-                </button>
-                {players.length > 2 && (
-                    <button type="button" onClick={() => setPlayers(players.slice(0, -1))}>- Poista</button>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
+                {players.length < 4 && (
+                    <button
+                        type="button"
+                        onClick={() =>
+                            setPlayers([...players, { name: `Pelaaja ${players.length + 1}`, ai: false }])
+                        }
+                    >
+                      + Lisää pelaaja
+                    </button>
                 )}
+                {players.length > 2 && (
+                    <button type="button" onClick={() => setPlayers(players.slice(0, -1))}>
+                      - Poista
+                    </button>
+                )}
+                <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginLeft: 'auto' }}>
+                    Pelaajia: {players.length}/4
+                </span>
               </div>
               <button type="button" onClick={handleCreateGame}>Jaa kortit ja aloita</button>
             </div>
@@ -669,20 +683,52 @@ export default function App() {
                               '— odotetaan muiden vuoroa...'
                           )}
                         </p>
+                        {/* Järjestyspainikkeet */}
+                        <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Järjestä:</span>
+                          <button
+                              onClick={() => setSortBy('suit')}
+                              style={{ background: sortBy === 'suit' ? '#4CAF50' : 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', fontSize: '0.8rem' }}
+                          >
+                            Maittain
+                          </button>
+                          <button
+                              onClick={() => setSortBy('rank')}
+                              style={{ background: sortBy === 'rank' ? '#4CAF50' : 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', fontSize: '0.8rem' }}
+                          >
+                            Arvon mukaan
+                          </button>
+                        </div>
+
                         <div className="hand">
-                          {humanPlayer.hand?.map((card) => {
-                            const cardKey = `${card.suit}-${card.rank}`
-                            const isBeingPlayed = cardKey === playingCardKey
-                            return (
-                                <CardView
-                                    key={cardKey}
-                                    card={card}
-                                    layoutId={cardKey}
-                                    disabled={isWaitingForBots || !isMyTurn || isBeingPlayed}
-                                    onClick={isMyTurn ? () => handlePlayCard(card) : undefined}
-                                />
-                            )
-                          })}
+                          {(() => {
+                            const handCopy = [...(humanPlayer.hand || [])]
+                            const sortedHumanHand = handCopy.sort((a, b) => {
+                              if (sortBy === 'suit') {
+                                const suitDiff = (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0)
+                                if (suitDiff !== 0) return suitDiff
+                                return (RANK_ORDER[a.rank] || 0) - (RANK_ORDER[b.rank] || 0)
+                              } else {
+                                const rankDiff = (RANK_ORDER[a.rank] || 0) - (RANK_ORDER[b.rank] || 0)
+                                if (rankDiff !== 0) return rankDiff
+                                return (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0)
+                              }
+                            })
+
+                            return sortedHumanHand.map((card) => {
+                              const cardKey = `${card.suit}-${card.rank}`
+                              const isBeingPlayed = cardKey === playingCardKey
+                              return (
+                                  <CardView
+                                      key={cardKey}
+                                      card={card}
+                                      layoutId={cardKey}
+                                      disabled={isWaitingForBots || !isMyTurn || isBeingPlayed}
+                                      onClick={isMyTurn ? () => handlePlayCard(card) : undefined}
+                                  />
+                              )
+                            })
+                          })()}
                         </div>
                       </div>
                   )}
