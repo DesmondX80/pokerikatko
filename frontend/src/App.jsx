@@ -19,7 +19,7 @@ const RANK_ORDER = {
 function seatStyle(index, total) {
   const angle = (2 * Math.PI * index) / total - Math.PI / 2
   const rx = 38
-  const ry = 28 // Pienennetty säde, jotta yläreunan kortit mahtuvat pöydälle
+  const ry = 28
   const left = 50 + rx * Math.cos(angle)
   const top = 50 + ry * Math.sin(angle)
   return { left: `${left}%`, top: `${top}%` }
@@ -44,6 +44,21 @@ function collectSeatCards(tricks, playerId) {
   return cards
 }
 
+function sortHandCards(hand, sortBy) {
+  if (!hand) return []
+  return [...hand].sort((a, b) => {
+    if (sortBy === 'suit') {
+      const suitDiff = (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0)
+      if (suitDiff !== 0) return suitDiff
+      return (RANK_ORDER[a.rank] || 0) - (RANK_ORDER[b.rank] || 0)
+    } else {
+      const rankDiff = (RANK_ORDER[a.rank] || 0) - (RANK_ORDER[b.rank] || 0)
+      if (rankDiff !== 0) return rankDiff
+      return (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0)
+    }
+  })
+}
+
 export default function App() {
   const [state, setState] = useState(null)
   const [players, setPlayers] = useState([
@@ -51,7 +66,7 @@ export default function App() {
     { name: 'Pelaaja 2', ai: false },
   ])
   const [error, setError] = useState('')
-  const [sortBy, setSortBy] = useState('suit') // 'suit' tai 'rank'
+
   const [targetScore, setTargetScore] = useState(5)
   const [matchScores, setMatchScores] = useState({})
   const roundProcessedRef = useRef(false)
@@ -60,6 +75,7 @@ export default function App() {
   const [selectedDiscards, setSelectedDiscards] = useState([])
   const [isWaitingForBots, setIsWaitingForBots] = useState(false)
   const [playingCardKey, setPlayingCardKey] = useState(null)
+  const [sortBy, setSortBy] = useState('suit') // 'suit' tai 'rank'
 
   const [transitionPhase, setTransitionPhase] = useState('IDLE')
   const [animDiscards, setAnimDiscards] = useState([])
@@ -82,7 +98,6 @@ export default function App() {
     }
   }
 
-  // Pisteiden laskenta kierroksen lopussa
   useEffect(() => {
     if (state?.phase === 'FINISHED' && !roundProcessedRef.current) {
       roundProcessedRef.current = true;
@@ -102,7 +117,6 @@ export default function App() {
     }
   }, [state]);
 
-  // Bottilogiikka
   useEffect(() => {
     const currentDrawingPlayer = state?.phase === 'DEALT'
         ? state.players?.find(p => p.id === drawingPlayerId)
@@ -126,9 +140,6 @@ export default function App() {
     lastAdvanceSignatureRef.current = signature
 
     const gameIdAtDispatch = state.gameId;
-
-    // Otetaan botin vanha käsi kopiona talteen ennen tilan päivittämistä,
-    // jotta tiedämme täsmälleen mitkä kortit hylättiin animaatiota varten.
     const oldBotHand = currentDrawingPlayer?.hand ? [...currentDrawingPlayer.hand] : [];
 
     ;(async () => {
@@ -243,7 +254,6 @@ export default function App() {
       setError('')
       setIsWaitingForBots(true)
 
-      // Varmistetaan pelaajan omien korttien turvallinen kopio animaatiota varten
       const currentHand = drawingPlayer?.hand ? [...drawingPlayer.hand] : []
       const discards = [...selectedDiscards]
       setSelectedDiscards([])
@@ -323,8 +333,6 @@ export default function App() {
                             border: `1px solid ${targetScore === pts ? '#fdd835' : 'rgba(255, 255, 255, 0.2)'}`,
                             color: targetScore === pts ? '#fdd835' : '#fff',
                             padding: '10px 0',
-                            boxShadow: targetScore === pts ? '0 0 10px rgba(253, 216, 53, 0.2)' : 'none',
-                            margin: 0,
                             borderRadius: '10px',
                             textAlign: 'center',
                             cursor: 'pointer',
@@ -375,6 +383,7 @@ export default function App() {
                     </label>
                   </div>
               ))}
+
               <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
                 {players.length < 4 && (
                     <button
@@ -387,15 +396,14 @@ export default function App() {
                     </button>
                 )}
                 {players.length > 2 && (
-                    <button type="button" onClick={() => setPlayers(players.slice(0, -1))}>
-                      - Poista
-                    </button>
+                    <button type="button" onClick={() => setPlayers(players.slice(0, -1))}>- Poista</button>
                 )}
                 <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginLeft: 'auto' }}>
-                    Pelaajia: {players.length}/4
+                  Pelaajia: {players.length}/4
                 </span>
               </div>
-              <button type="button" onClick={handleCreateGame}>Jaa kortit ja aloita</button>
+
+              <button type="button" onClick={handleCreateGame} style={{ width: '100%' }}>Jaa kortit ja aloita</button>
             </div>
           </div>
         </div>
@@ -526,7 +534,9 @@ export default function App() {
                                           displayHand = tempHand
                                         }
 
-                                        return displayHand.map((card, idx) => {
+                                        const sortedDisplayHand = sortHandCards(displayHand, sortBy)
+
+                                        return sortedDisplayHand.map((card, idx) => {
                                           const isSelected = selectedDiscards.some(
                                               (c) => c.suit === card.suit && c.rank === card.rank
                                           )
@@ -535,7 +545,7 @@ export default function App() {
                                               <div
                                                   key={key}
                                                   className="card-row-item"
-                                                  style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
+                                                  style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
                                               >
                                                 {p.ai ? (
                                                     <CardBack layoutId={key} />
@@ -560,7 +570,7 @@ export default function App() {
                                             <div
                                                 key={key}
                                                 className="card-row-item"
-                                                style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
+                                                style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
                                             >
                                               {!p.ai && isHumanSelf ? (
                                                   <CardView card={card} layoutId={key} />
@@ -589,7 +599,7 @@ export default function App() {
                                               <div
                                                   key={key}
                                                   className="card-row-item"
-                                                  style={{ marginLeft: idx === 0 ? 0 : -28, zIndex: idx }}
+                                                  style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
                                               >
                                                 <CardBack layoutId={key} />
                                               </div>
@@ -609,7 +619,7 @@ export default function App() {
                                                   <div
                                                       key={key}
                                                       className="card-row-item"
-                                                      style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
+                                                      style={{ marginLeft: idx === 0 ? 0 : -15, zIndex: idx }}
                                                   >
                                                     <CardView card={card} layoutId={key} />
                                                   </div>
@@ -641,6 +651,23 @@ export default function App() {
                           </div>
                       )
                     })}
+                  </div>
+
+                  {/* Järjestyspainikkeet */}
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Järjestä käsi:</span>
+                    <button
+                        onClick={() => setSortBy('suit')}
+                        style={{ background: sortBy === 'suit' ? '#4CAF50' : 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 10px', cursor: 'pointer', borderRadius: '4px', fontSize: '0.8rem' }}
+                    >
+                      Maittain
+                    </button>
+                    <button
+                        onClick={() => setSortBy('rank')}
+                        style={{ background: sortBy === 'rank' ? '#4CAF50' : 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 10px', cursor: 'pointer', borderRadius: '4px', fontSize: '0.8rem' }}
+                    >
+                      Arvon mukaan
+                    </button>
                   </div>
 
                   {currentPhase === 'DEALT' && drawingPlayer && transitionPhase === 'IDLE' && !drawingPlayer.ai && (
@@ -683,52 +710,20 @@ export default function App() {
                               '— odotetaan muiden vuoroa...'
                           )}
                         </p>
-                        {/* Järjestyspainikkeet */}
-                        <div style={{ marginBottom: '10px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Järjestä:</span>
-                          <button
-                              onClick={() => setSortBy('suit')}
-                              style={{ background: sortBy === 'suit' ? '#4CAF50' : 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', fontSize: '0.8rem' }}
-                          >
-                            Maittain
-                          </button>
-                          <button
-                              onClick={() => setSortBy('rank')}
-                              style={{ background: sortBy === 'rank' ? '#4CAF50' : 'rgba(255,255,255,0.1)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)', padding: '4px 8px', cursor: 'pointer', borderRadius: '4px', fontSize: '0.8rem' }}
-                          >
-                            Arvon mukaan
-                          </button>
-                        </div>
-
                         <div className="hand">
-                          {(() => {
-                            const handCopy = [...(humanPlayer.hand || [])]
-                            const sortedHumanHand = handCopy.sort((a, b) => {
-                              if (sortBy === 'suit') {
-                                const suitDiff = (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0)
-                                if (suitDiff !== 0) return suitDiff
-                                return (RANK_ORDER[a.rank] || 0) - (RANK_ORDER[b.rank] || 0)
-                              } else {
-                                const rankDiff = (RANK_ORDER[a.rank] || 0) - (RANK_ORDER[b.rank] || 0)
-                                if (rankDiff !== 0) return rankDiff
-                                return (SUIT_ORDER[a.suit] || 0) - (SUIT_ORDER[b.suit] || 0)
-                              }
-                            })
-
-                            return sortedHumanHand.map((card) => {
-                              const cardKey = `${card.suit}-${card.rank}`
-                              const isBeingPlayed = cardKey === playingCardKey
-                              return (
-                                  <CardView
-                                      key={cardKey}
-                                      card={card}
-                                      layoutId={cardKey}
-                                      disabled={isWaitingForBots || !isMyTurn || isBeingPlayed}
-                                      onClick={isMyTurn ? () => handlePlayCard(card) : undefined}
-                                  />
-                              )
-                            })
-                          })()}
+                          {sortHandCards(humanPlayer.hand, sortBy).map((card) => {
+                            const cardKey = `${card.suit}-${card.rank}`
+                            const isBeingPlayed = cardKey === playingCardKey
+                            return (
+                                <CardView
+                                    key={cardKey}
+                                    card={card}
+                                    layoutId={cardKey}
+                                    disabled={isWaitingForBots || !isMyTurn || isBeingPlayed}
+                                    onClick={isMyTurn ? () => handlePlayCard(card) : undefined}
+                                />
+                            )
+                          })}
                         </div>
                       </div>
                   )}
