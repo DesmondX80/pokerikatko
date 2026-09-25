@@ -350,7 +350,7 @@ export default function App() {
             <div className="app-container setup-mode" style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="setup-card">
                 <h1 className="western-title"><span>🤠 🔫</span> Pokerikatko <span>🔫 🤠</span></h1>
-                <p className="subtitle">Lännen nopein pokerivaihto + tikkipeli</p>
+                <p className="subtitle">Lännen nopein pokeri + tikkipeli</p>
                 <div className="setup">
                   {error && <div className="error">{error}</div>}
 
