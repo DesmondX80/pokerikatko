@@ -12,8 +12,8 @@ const RANK_ORDER = {
 function seatStyle(index, total) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
   const angle = (2 * Math.PI * index) / total + Math.PI / 2
-  const rx = isMobile ? 25 : 36
-  const ry = isMobile ? 28 : 28
+  const rx = isMobile ? 30 : 36
+  const ry = isMobile ? 26 : 28
   const left = 50 + rx * Math.cos(angle)
   const top = 50 + ry * Math.sin(angle)
   return { left: `${left}%`, top: `${top}%` }
@@ -242,7 +242,7 @@ export default function App() {
   return (
       <div className="app-container">
         <style>{`
-          /* Länkkärityylinen otsikko ja tehosteet */
+          /* Länkkärityylinen otsikko ja optimoidut mobiilikoot */
           .western-title {
             font-family: 'Georgia', 'Times New Roman', serif;
             font-weight: bold;
@@ -307,19 +307,21 @@ export default function App() {
             }
             .poker-table {
               width: 100% !important;
-              height: 240px !important;
+              height: 290px !important;
               max-width: 100% !important;
               margin: 5px auto 10px auto !important;
-              overflow: hidden;
             }
+            /* Muiden pelaajien istuimet sopivan kokoisiksi */
             .seat:not(.human-seat) {
-              transform: translate(-50%, -50%) scale(0.3) !important;
-            }
-            .seat.human-seat {
               transform: translate(-50%, -50%) scale(0.55) !important;
             }
+            /* Pelaaja 1 (ihminen) hieman suurempi ja selkeä */
+            .seat.human-seat {
+              transform: translate(-50%, -50%) scale(0.85) !important;
+            }
+            /* Pakka keskellä */
             .deck-area {
-              transform: translate(-50%, -50%) scale(0.4) !important;
+              transform: translate(-50%, -50%) scale(0.7) !important;
             }
             .card-row-item {
               margin-left: -16px !important;
@@ -350,7 +352,7 @@ export default function App() {
             <div className="app-container setup-mode" style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="setup-card">
                 <h1 className="western-title"><span>🤠 🔫</span> Pokerikatko <span>🔫 🤠</span></h1>
-                <p className="subtitle">Lännen nopein pokeri + tikkipeli</p>
+                <p className="subtitle">Lännen nopein pokerivaihto + tikkipeli</p>
                 <div className="setup">
                   {error && <div className="error">{error}</div>}
 
