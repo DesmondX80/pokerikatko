@@ -242,7 +242,7 @@ export default function App() {
   return (
       <div className="app-container">
         <style>{`
-          /* Länkkärityylinen otsikko ja optimoidut mobiilikoot */
+          /* Länkkärityylinen otsikko ja korjatut mobiilimitat */
           .western-title {
             font-family: 'Georgia', 'Times New Roman', serif;
             font-weight: bold;
@@ -311,20 +311,21 @@ export default function App() {
               max-width: 100% !important;
               margin: 5px auto 10px auto !important;
             }
-            /* Muiden pelaajien istuimet sopivan kokoisiksi */
+            /* Muiden pelaajien istuimet */
             .seat:not(.human-seat) {
-              transform: translate(-50%, -50%) scale(0.55) !important;
+              transform: translate(-50%, -50%) scale(0.5) !important;
             }
-            /* Pelaaja 1 (ihminen) hieman suurempi ja selkeä */
+            /* Pelaaja 1 (ihminen) */
             .seat.human-seat {
-              transform: translate(-50%, -50%) scale(0.85) !important;
+              transform: translate(-50%, -50%) scale(0.75) !important;
             }
-            /* Pakka keskellä */
+            /* Pakka pienemmäksi keskelle */
             .deck-area {
-              transform: translate(-50%, -50%) scale(0.7) !important;
+              transform: translate(-50%, -50%) scale(0.45) !important;
             }
+            /* Vähennetään korttien liiallista päällekkäisyyttä */
             .card-row-item {
-              margin-left: -16px !important;
+              margin-left: -8px !important;
             }
             .hand {
               overflow-x: auto;
@@ -512,7 +513,7 @@ export default function App() {
                                                   <div
                                                       key={key}
                                                       className="card-row-item"
-                                                      style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
+                                                      style={{ marginLeft: idx === 0 ? 0 : -10, zIndex: idx }}
                                                   >
                                                     {p.ai ? (
                                                         <CardBack layoutId={key} />
@@ -536,7 +537,7 @@ export default function App() {
                                                   <div
                                                       key={key}
                                                       className="card-row-item"
-                                                      style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
+                                                      style={{ marginLeft: idx === 0 ? 0 : -10, zIndex: idx }}
                                                   >
                                                     {isHumanSelf && !p.ai ? (
                                                         <CardView card={card} layoutId={key} />
@@ -565,7 +566,7 @@ export default function App() {
                                                     <div
                                                         key={key}
                                                         className="card-row-item"
-                                                        style={{ marginLeft: idx === 0 ? 0 : -20, zIndex: idx }}
+                                                        style={{ marginLeft: idx === 0 ? 0 : -10, zIndex: idx }}
                                                     >
                                                       <CardBack layoutId={key} />
                                                     </div>
@@ -585,7 +586,7 @@ export default function App() {
                                                         <div
                                                             key={key}
                                                             className="card-row-item"
-                                                            style={{ marginLeft: idx === 0 ? 0 : -15, zIndex: idx }}
+                                                            style={{ marginLeft: idx === 0 ? 0 : -10, zIndex: idx }}
                                                         >
                                                           <CardView card={card} layoutId={key} />
                                                         </div>
