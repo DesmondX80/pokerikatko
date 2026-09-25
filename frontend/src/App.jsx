@@ -481,9 +481,12 @@ export default function App() {
                             )
                           })}
 
-                      <div style={{ position: 'relative', zIndex: 10 }}>
-                        <CardBack count={state.deckSize} />
-                      </div>
+                      {/* PAKKA KESKELLÄ PÖYTÄÄ */}
+                      {state.deckSize > 0 && (
+                          <div className="deck-area">
+                            <CardBack count={state.deckSize} />
+                          </div>
+                      )}
 
                       {transitionPhase === 'DRAW_PREPARE' &&
                           animDraws.map((card, i) => {
@@ -628,7 +631,7 @@ export default function App() {
                                           </div>
                                       )
                                     } else {
-                                      return <div className="card-slot-empty" />
+                                      return null; // Poistaa tyhjän neliön kokonaan käytöstä
                                     }
                                   })()}
                                 </div>
