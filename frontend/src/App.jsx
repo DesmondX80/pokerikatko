@@ -10,9 +10,10 @@ const RANK_ORDER = {
 }
 
 function seatStyle(index, total) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
   const angle = (2 * Math.PI * index) / total + Math.PI / 2
-  const rx = 36
-  const ry = 28
+  const rx = isMobile ? 25 : 36
+  const ry = isMobile ? 28 : 28
   const left = 50 + rx * Math.cos(angle)
   const top = 50 + ry * Math.sin(angle)
   return { left: `${left}%`, top: `${top}%` }
@@ -241,20 +242,36 @@ export default function App() {
   return (
       <div className="app-container">
         <style>{`
-          /* Mobiilioptimizointi: pienemmät kortit ja rullattava näkymä */
+          /* Länkkärityylinen otsikko ja tehosteet */
+          .western-title {
+            font-family: 'Georgia', 'Times New Roman', serif;
+            font-weight: bold;
+            letter-spacing: 2px;
+            color: #ffca28;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8), 0 0 10px rgba(255, 202, 40, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+          }
+
           @media (max-width: 768px) {
+            html, body {
+              height: auto !important;
+              overflow: auto !important;
+            }
             .app-container {
               flex-direction: column !important;
               height: auto !important;
               min-height: 100vh;
-              overflow-y: auto !important;
+              overflow: auto !important;
             }
             .sidebar {
               width: 100% !important;
               height: auto !important;
               flex-direction: row !important;
               flex-wrap: wrap;
-              padding: 8px !important;
+              padding: 6px !important;
               box-sizing: border-box;
               border-right: none !important;
               border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -263,11 +280,6 @@ export default function App() {
             .sidebar-header {
               width: 100%;
               margin-bottom: 2px !important;
-            }
-            .sidebar-header h1 {
-              font-size: 1rem !important;
-              text-align: center;
-              margin: 0;
             }
             .scoreboard {
               display: flex;
@@ -281,30 +293,36 @@ export default function App() {
             }
             .player-badge {
               flex: 1;
-              min-width: 80px;
+              min-width: 75px;
               padding: 4px 6px !important;
-              font-size: 0.75rem;
+              font-size: 0.7rem;
               margin-bottom: 0 !important;
             }
             .game-area {
               flex: 1 !important;
               height: auto !important;
-              overflow-y: auto !important;
-              padding: 10px 10px 40px 10px !important;
+              overflow: visible !important;
+              padding: 10px 10px 160px 10px !important;
               box-sizing: border-box;
             }
             .poker-table {
               width: 100% !important;
-              height: 320px !important;
+              height: 240px !important;
               max-width: 100% !important;
               margin: 5px auto 10px auto !important;
+              overflow: hidden;
             }
-            /* Skaalataan kortit ja istuimet pienemmiksi mobiilissa */
-            .seat {
-              transform: translate(-50%, -50%) scale(0.72) !important;
+            .seat:not(.human-seat) {
+              transform: translate(-50%, -50%) scale(0.3) !important;
+            }
+            .seat.human-seat {
+              transform: translate(-50%, -50%) scale(0.55) !important;
+            }
+            .deck-area {
+              transform: translate(-50%, -50%) scale(0.4) !important;
             }
             .card-row-item {
-              margin-left: -14px !important;
+              margin-left: -16px !important;
             }
             .hand {
               overflow-x: auto;
@@ -313,9 +331,11 @@ export default function App() {
               max-width: 100%;
             }
             .player-panel {
-              padding: 10px !important;
-              margin-top: 10px !important;
-              margin-bottom: 20px !important;
+              padding: 12px !important;
+              margin-top: 15px !important;
+              margin-bottom: 40px !important;
+              position: relative !important;
+              z-index: 10;
             }
             .setup-card {
               width: 92% !important;
@@ -329,8 +349,8 @@ export default function App() {
         {!state ? (
             <div className="app-container setup-mode" style={{ width: '100%', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div className="setup-card">
-                <h1>🂡 Pokerikatko</h1>
-                <p className="subtitle">Pokerivaihto + tikkipeli samoilla korteilla</p>
+                <h1 className="western-title"><span>🤠 🔫</span> Pokerikatko <span>🔫 🤠</span></h1>
+                <p className="subtitle">Lännen nopein pokerivaihto + tikkipeli</p>
                 <div className="setup">
                   {error && <div className="error">{error}</div>}
 
@@ -428,7 +448,7 @@ export default function App() {
               {/* VASEN SIVUPANEELI / MOBIILISSA YLÄBARI */}
               <aside className="sidebar">
                 <div className="sidebar-header">
-                  <h1>🂡 Pokerikatko</h1>
+                  <h1 className="western-title" style={{ fontSize: '1.1rem' }}><span>🔫</span> Pokerikatko <span>🔫</span></h1>
                 </div>
                 <div className="scoreboard">
                   <h3>Pisteet (Tavoite: {targetScore})</h3>
@@ -475,7 +495,7 @@ export default function App() {
                             return (
                                 <div
                                     key={p.id}
-                                    className="seat"
+                                    className={'seat' + (isHumanSelf ? ' human-seat' : '')}
                                     style={seatStyle(i, total)}
                                 >
                                   {state.phase === 'DEALT' ? (
