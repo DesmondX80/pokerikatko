@@ -230,7 +230,6 @@ export default function App() {
     }
   }
 
-  // Määritellään tarvittavat muuttujat pelitilan renderöintiä varten
   const drawingPlayer = state?.players?.find((p) => p.id === drawingPlayerId)
   const originalPlayerNames = players.map(p => p.name.trim())
   const sortedSeatPlayers = state?.players ? [...state.players].sort((a, b) => {
@@ -242,7 +241,7 @@ export default function App() {
   return (
       <div className="app-container">
         <style>{`
-          /* Mobiilioptimizointi ja responsiivisuus */
+          /* Mobiilioptimizointi: pienemmät kortit ja rullattava näkymä */
           @media (max-width: 768px) {
             .app-container {
               flex-direction: column !important;
@@ -255,24 +254,26 @@ export default function App() {
               height: auto !important;
               flex-direction: row !important;
               flex-wrap: wrap;
-              padding: 10px !important;
+              padding: 8px !important;
               box-sizing: border-box;
               border-right: none !important;
               border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+              flex-shrink: 0;
             }
             .sidebar-header {
               width: 100%;
-              margin-bottom: 5px !important;
+              margin-bottom: 2px !important;
             }
             .sidebar-header h1 {
-              font-size: 1.1rem !important;
+              font-size: 1rem !important;
               text-align: center;
+              margin: 0;
             }
             .scoreboard {
               display: flex;
               flex-direction: row;
               flex-wrap: wrap;
-              gap: 6px;
+              gap: 4px;
               width: 100%;
             }
             .scoreboard h3 {
@@ -280,37 +281,45 @@ export default function App() {
             }
             .player-badge {
               flex: 1;
-              min-width: 90px;
-              padding: 6px 8px !important;
-              font-size: 0.8rem;
+              min-width: 80px;
+              padding: 4px 6px !important;
+              font-size: 0.75rem;
               margin-bottom: 0 !important;
             }
             .game-area {
-              flex: 1;
+              flex: 1 !important;
               height: auto !important;
-              min-height: 520px;
-              padding: 10px !important;
+              overflow-y: auto !important;
+              padding: 10px 10px 40px 10px !important;
               box-sizing: border-box;
             }
             .poker-table {
               width: 100% !important;
-              height: 380px !important;
+              height: 320px !important;
               max-width: 100% !important;
-              margin: 10px auto !important;
+              margin: 5px auto 10px auto !important;
+            }
+            /* Skaalataan kortit ja istuimet pienemmiksi mobiilissa */
+            .seat {
+              transform: translate(-50%, -50%) scale(0.72) !important;
+            }
+            .card-row-item {
+              margin-left: -14px !important;
             }
             .hand {
               overflow-x: auto;
               justify-content: flex-start !important;
-              padding-bottom: 8px;
+              padding-bottom: 6px;
               max-width: 100%;
             }
             .player-panel {
               padding: 10px !important;
-              margin-top: 5px !important;
+              margin-top: 10px !important;
+              margin-bottom: 20px !important;
             }
             .setup-card {
               width: 92% !important;
-              padding: 18px !important;
+              padding: 16px !important;
               margin: 10px auto !important;
               box-sizing: border-box;
             }
