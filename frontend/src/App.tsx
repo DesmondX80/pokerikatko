@@ -1,15 +1,57 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, FC } from 'react'
 import CardView, { CardBack } from './components/CardView.jsx'
 import { advanceBot, createGame, draw, playCard } from './api.js'
 
-const SUIT_ORDER = { HERTTA: 1, RUUTU: 2, RISTI: 3, PATA: 4 }
-const RANK_ORDER = {
+const SUIT_ORDER: Record<string, number> = { HERTTA: 1, RUUTU: 2, RISTI: 3, PATA: 4 }
+const RANK_ORDER: Record<string, number> = {
   TWO: 0, THREE: 1, FOUR: 2, FIVE: 3,
   SIX: 4, SEVEN: 5, EIGHT: 6, NINE: 7, TEN: 8,
   JACK: 9, QUEEN: 10, KING: 11, ACE: 12
 }
 
-function seatStyle(index, total) {
+interface Card {
+  suit: string;
+  rank: string;
+}
+
+interface Player {
+  id: string;
+  name: string;
+  ai: boolean;
+  hand?: Card[];
+  hasDrawn?: boolean;
+}
+
+interface Play {
+  playerId: string;
+  card: Card;
+}
+
+interface Trick {
+  inProgress?: boolean;
+  ledSuit?: string;
+  plays?: Play[];
+}
+
+interface GameState {
+  gameId: string;
+  phase: string;
+  players: Player[];
+  deckSize: number;
+  playerToActId?: string;
+  lastTrickWinnerId?: string;
+  bestPokerHandPlayerId?: string;
+  snapshotPokerHands?: Record<string, string>;
+  tricks?: Trick[];
+  aiTurnPending?: boolean;
+}
+
+interface LocalPlayerSetup {
+  name: string;
+  ai: boolean;
+}
+
+function seatStyle(index: number, total: number) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768
   const angle = (2 * Math.PI * index) / total + Math.PI / 2
   const rx = isMobile ? 30 : 36
@@ -19,17 +61,19 @@ function seatStyle(index, total) {
   return { left: `${left}%`, top: `${top}%` }
 }
 
-function collectSeatCards(tricks, playerId) {
-  const cards = []
+function collectSeatCards(tricks: Trick[] | undefined, playerId: string): Card[] {
+  const cards: Card[] = []
   if (!tricks || !Array.isArray(tricks)) return cards
   for (const trick of tricks) {
-    const play = trick.plays?.find((p) => p.playerId === playerId)
-    if (play && play.card) cards.push(play.card)
+    const play = trick.plays?.((p: Play) => p.playerId === playerId)
+    // korjataan turvallinen haku
+    const foundPlay = trick.plays?.find((p) => p.playerId === playerId)
+    if (foundPlay && foundPlay.card) cards.push(foundPlay.card)
   }
   return cards
 }
 
-function sortHandCards(hand, sortBy) {
+function sortHandCards(hand: Card[] | undefined, sortBy: 'suit' | 'rank'): Card[] {
   if (!hand) return []
   return [...hand].sort((a, b) => {
     if (sortBy === 'suit') {
@@ -45,30 +89,30 @@ function sortHandCards(hand, sortBy) {
 }
 
 export default function App() {
-  const [state, setState] = useState(null)
-  const [players, setPlayers] = useState([
+  const [state, setState] = useState<GameState | null>(null)
+  const [players, setPlayers] = useState<LocalPlayerSetup[]>([
     { name: 'Pelaaja 1', ai: false },
     { name: 'Pelaaja 2', ai: false },
   ])
-  const [error, setError] = useState('')
+  const [error, setError] = useState<string>('')
 
-  const [targetScore, setTargetScore] = useState(5)
-  const [matchScores, setMatchScores] = useState({})
-  const roundProcessedRef = useRef(false)
+  const [targetScore, setTargetScore] = useState<number>(5)
+  const [matchScores, setMatchScores] = useState<Record<string, number>>({})
+  const roundProcessedRef = useRef<boolean>(false)
 
-  const [drawingPlayerId, setDrawingPlayerId] = useState(null)
-  const [selectedDiscards, setSelectedDiscards] = useState([])
-  const [isWaitingForBots, setIsWaitingForBots] = useState(false)
-  const [playingCardKey, setPlayingCardKey] = useState(null)
-  const [sortBy, setSortBy] = useState('suit')
+  const [drawingPlayerId, setDrawingPlayerId] = useState<string | null>(null)
+  const [selectedDiscards, setSelectedDiscards] = useState<Card[]>([])
+  const [isWaitingForBots, setIsWaitingForBots] = useState<boolean>(false)
+  const [playingCardKey, setPlayingCardKey] = useState<string | null>(null)
+  const [sortBy, setSortBy] = useState<'suit' | 'rank'>('suit')
 
-  const [dealerIndex, setDealerIndex] = useState(0)
+  const [dealerIndex, setDealerIndex] = useState<number>(0)
 
-  const lastAdvanceSignatureRef = useRef(null)
-  const activeGameIdRef = useRef(null)
+  const lastAdvanceSignatureRef = useRef<string | null>(null)
+  const activeGameIdRef = useRef<string | null>(null)
   activeGameIdRef.current = state ? state.gameId : null
 
-  function applyState(data) {
+  function applyState(data: GameState) {
     setState(data)
     setPlayingCardKey(null)
     if (data && data.phase === 'DEALT') {
@@ -113,7 +157,7 @@ export default function App() {
       state.gameId,
       state.phase,
       state.playerToActId,
-      state.completedTricksCount,
+      state.completedTricksCount ?? '',
       state.players?.map((p) => (p.hasDrawn ? '1' : '0')).join(''),
     ].join('|')
 
@@ -134,7 +178,7 @@ export default function App() {
         if (activeGameIdRef.current !== gameIdAtDispatch) return;
 
         applyState(data)
-      } catch (e) {
+      } catch (e: any) {
         if (activeGameIdRef.current !== gameIdAtDispatch) setError(e.message)
       } finally {
         if (activeGameIdRef.current === gameIdAtDispatch) setIsWaitingForBots(false)
@@ -169,13 +213,13 @@ export default function App() {
         return
       }
 
-      const initialScores = {};
+      const initialScores: Record<string, number> = {};
       cleanPlayers.forEach(p => initialScores[p.name] = 0);
       setMatchScores(initialScores);
       roundProcessedRef.current = false;
 
       await startGame(true);
-    } catch (e) {
+    } catch (e: any) {
       setError(e.message)
     }
   }
@@ -185,12 +229,12 @@ export default function App() {
       setError('')
       roundProcessedRef.current = false;
       await startGame(false);
-    } catch (e) {
+    } catch (e: any) {
       setError(e.message)
     }
   }
 
-  function toggleDiscard(card) {
+  function toggleDiscard(card: Card) {
     const key = card.suit + card.rank
     setSelectedDiscards((prev) => {
       const exists = prev.find((c) => c.suit + c.rank === key)
@@ -201,6 +245,7 @@ export default function App() {
 
   async function handleSubmitDraw() {
     try {
+      if (!drawingPlayerId || !state) return;
       setError('')
       setIsWaitingForBots(true)
       const discards = [...selectedDiscards]
@@ -209,21 +254,22 @@ export default function App() {
       const data = await draw(state.gameId, drawingPlayerId, discards)
       applyState(data)
       setIsWaitingForBots(false)
-    } catch (e) {
+    } catch (e: any) {
       setError(e.message)
       setIsWaitingForBots(false)
     }
   }
 
-  async function handlePlayCard(card) {
+  async function handlePlayCard(card: Card) {
     try {
+      if (!state || !state.playerToActId) return;
       setError('')
       const cardKey = `${card.suit}-${card.rank}`
       setPlayingCardKey(cardKey)
       setIsWaitingForBots(true)
       const data = await playCard(state.gameId, state.playerToActId, card)
       applyState(data)
-    } catch (e) {
+    } catch (e: any) {
       setError(e.message)
       setPlayingCardKey(null)
     } finally {
@@ -242,7 +288,6 @@ export default function App() {
   return (
       <div className="app-container">
         <style>{`
-          /* Länkkärityylinen otsikko ja korjatut mobiilimitat */
           .western-title {
             font-family: 'Georgia', 'Times New Roman', serif;
             font-weight: bold;
@@ -311,21 +356,17 @@ export default function App() {
               max-width: 100% !important;
               margin: 5px auto 10px auto !important;
             }
-            /* Muiden pelaajien istuimet */
             .seat:not(.human-seat) {
               transform: translate(-50%, -50%) scale(0.5) !important;
             }
-            /* Pelaaja 1 (ihminen) */
             .seat.human-seat {
               transform: translate(-50%, -50%) scale(0.75) !important;
             }
-            /* Pakka pienemmäksi keskelle */
             .deck-area {
               transform: translate(-50%, -50%) scale(0.45) !important;
             }
-            /* Vähennetään korttien liiallista päällekkäisyyttä */
             .card-row-item {
-              margin-left: -8px !important;
+              margin-left: -10px !important;
             }
             .hand {
               overflow-x: auto;
@@ -448,7 +489,6 @@ export default function App() {
             </div>
         ) : (
             <>
-              {/* VASEN SIVUPANEELI / MOBIILISSA YLÄBARI */}
               <aside className="sidebar">
                 <div className="sidebar-header">
                   <h1 className="western-title" style={{ fontSize: '1.1rem' }}><span>🔫</span> Pokerikatko <span>🔫</span></h1>
@@ -472,7 +512,6 @@ export default function App() {
                 </div>
               </aside>
 
-              {/* PELIALUE */}
               <main className="game-area">
                 {error && <div className="error">{error}</div>}
                 {(() => {
@@ -481,7 +520,6 @@ export default function App() {
                   return (
                       <>
                         <div className="poker-table">
-                          {/* PAKKA KESKELLÄ PÖYTÄÄ */}
                           {state.deckSize > 0 && (
                               <div className="deck-area">
                                 <CardBack count={state.deckSize} />
@@ -620,7 +658,6 @@ export default function App() {
                           })}
                         </div>
 
-                        {/* Järjestyspainikkeet */}
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
                           <span style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.7)' }}>Järjestä käsi:</span>
                           <button
@@ -692,7 +729,7 @@ export default function App() {
                         {state.phase === 'FINISHED' && (() => {
                           const scoresArr = Object.values(matchScores || {});
                           const highestScore = scoresArr.length > 0 ? Math.max(...scoresArr) : 0;
-                          let matchWinners = [];
+                          let matchWinners: string[] = [];
                           if (highestScore >= targetScore && scoresArr.length > 0) {
                             matchWinners = Object.keys(matchScores).filter(name => matchScores[name] === highestScore);
                           }

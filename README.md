@@ -57,7 +57,7 @@ backend/
     controller/  GameController (REST API)
 frontend/
   src/
-    App.jsx           Pääkomponentti / pelinäkymä
+    App.tsx           Pääkomponentti / pelinäkymä
     api.js             Kutsut backendin REST-rajapintaan
     components/CardView.jsx
 ```

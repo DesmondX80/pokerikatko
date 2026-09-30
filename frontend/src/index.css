@@ -466,7 +466,7 @@ body, html, #root {
   box-sizing: border-box !important;
 }
 
-/* Varmistetaan, että App.jsx:n sisällä oleva .setup div pinoaa kaiken pystysuoraan */
+/* Varmistetaan, että App.tsx:n sisällä oleva .setup div pinoaa kaiken pystysuoraan */
 .setup-card .setup {
   display: flex !important;
   flex-direction: column !important;
@@ -540,7 +540,7 @@ body, html, #root {
   cursor: pointer !important;
 }
 
-/* Lisää/Poista -painikkeiden rivi (App.jsx:ssä div style={{ display: 'flex', ... }}) */
+/* Lisää/Poista -painikkeiden rivi (App.tsx:ssä div style={{ display: 'flex', ... }}) */
 .setup-card .setup > div[style] {
   display: flex !important;
   flex-direction: row !important;
