@@ -65,8 +65,6 @@ function collectSeatCards(tricks: Trick[] | undefined, playerId: string): Card[]
   const cards: Card[] = []
   if (!tricks || !Array.isArray(tricks)) return cards
   for (const trick of tricks) {
-    const play = trick.plays?.((p: Play) => p.playerId === playerId)
-    // korjataan turvallinen haku
     const foundPlay = trick.plays?.find((p) => p.playerId === playerId)
     if (foundPlay && foundPlay.card) cards.push(foundPlay.card)
   }
