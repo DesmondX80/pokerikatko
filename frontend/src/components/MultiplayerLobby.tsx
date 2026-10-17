@@ -1,18 +1,8 @@
 import { useState, FormEvent } from 'react'
 import type { Multiplayer } from '../multiplayer'
 
-const LAST_JOIN_KEY = 'pokerikatko-last-join'
 const MIN_PLAYERS = 2
 const MAX_PLAYERS = 4
-
-function loadLastJoin(): { name: string; tableName: string } {
-  try {
-    const saved = JSON.parse(localStorage.getItem(LAST_JOIN_KEY) || '{}')
-    return { name: saved.name || '', tableName: saved.tableName || '' }
-  } catch {
-    return { name: '', tableName: '' }
-  }
-}
 
 interface Props {
   mp: Multiplayer;
@@ -22,7 +12,7 @@ interface Props {
 // Moninpelin liittymislomake ja odotusaula
 export default function MultiplayerLobby({ mp, onBack }: Props) {
   const { table, status, error } = mp
-  const [form, setForm] = useState(loadLastJoin)
+  const [form, setForm] = useState({ name: '', tableName: '' })
 
   function handleJoin(e: FormEvent) {
     e.preventDefault()
@@ -31,11 +21,6 @@ export default function MultiplayerLobby({ mp, onBack }: Props) {
     if (!name || !tableName) {
       mp.setError('Kirjoita sekä pelaajan nimi että pelipöydän nimi')
       return
-    }
-    try {
-      localStorage.setItem(LAST_JOIN_KEY, JSON.stringify({ name, tableName }))
-    } catch {
-      // Tallennus ei ole välttämätön
     }
     mp.connect(name, tableName)
   }
@@ -127,7 +112,16 @@ export default function MultiplayerLobby({ mp, onBack }: Props) {
                   : `Odotetaan, että ${host?.name ?? 'isäntä'} aloittaa pelin...`}
         </p>
 
-        <button type="button" className="back-btn" onClick={mp.disconnect}>Poistu pöydästä</button>
+        <button
+            type="button"
+            className="back-btn"
+            onClick={() => {
+              mp.disconnect()
+              onBack()
+            }}
+        >
+          Poistu pöydästä
+        </button>
         {isHost && (
             <button type="button" disabled={!canStart} onClick={() => mp.send({ type: 'start' })}>
               Aloita peli
