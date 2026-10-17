@@ -9,5 +9,19 @@
 			"id": "d874123151f7438abcb219b827ccf08a",
 			"remote": true
 		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "TABLES",
+				"class_name": "PokerTable"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["PokerTable"]
+		}
 	]
 }

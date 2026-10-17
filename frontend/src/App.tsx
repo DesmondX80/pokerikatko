@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, FC } from 'react'
 import CardView, { CardBack } from './components/CardView.jsx'
+import MultiplayerLobby from './components/MultiplayerLobby'
 import { advanceBot, createGame, draw, playCard } from './api.js'
+import { useMultiplayer } from './multiplayer'
 
 const SUIT_ORDER: Record<string, number> = { HERTTA: 1, RUUTU: 2, RISTI: 3, PATA: 4 }
 const RANK_ORDER: Record<string, number> = {
@@ -44,6 +46,7 @@ interface GameState {
   snapshotPokerHands?: Record<string, string>;
   tricks?: Trick[];
   aiTurnPending?: boolean;
+  completedTricksCount?: number;
 }
 
 interface LocalPlayerSetup {
@@ -87,24 +90,50 @@ function sortHandCards(hand: Card[] | undefined, sortBy: 'suit' | 'rank'): Card[
 }
 
 export default function App() {
-  const [state, setState] = useState<GameState | null>(null)
+  const [mode, setMode] = useState<'menu' | 'single' | 'multi'>('menu')
+  const mp = useMultiplayer()
+  const isMulti = mode === 'multi'
+  const mpGame: GameState | null = isMulti && mp.table?.status === 'PLAYING' ? mp.table.game : null
+  const myId = mp.table?.youId
+
+  const [localState, setState] = useState<GameState | null>(null)
+  // Moninpelissä pelin tila tulee palvelimelta, yksinpelissä se pidetään tässä komponentissa
+  const state = isMulti ? mpGame : localState
   const [players, setPlayers] = useState<LocalPlayerSetup[]>([
     { name: 'Pelaaja 1', ai: false },
     { name: 'Pelaaja 2', ai: false },
   ])
   const [error, setError] = useState<string>('')
 
-  const [targetScore, setTargetScore] = useState<number>(5)
-  const [matchScores, setMatchScores] = useState<Record<string, number>>({})
+  const [localTargetScore, setTargetScore] = useState<number>(5)
+  const [localMatchScores, setMatchScores] = useState<Record<string, number>>({})
+  const targetScore = isMulti ? (mp.table?.targetScore ?? 5) : localTargetScore
+  const matchScores = isMulti ? (mp.table?.matchScores ?? {}) : localMatchScores
   const roundProcessedRef = useRef<boolean>(false)
 
-  const [drawingPlayerId, setDrawingPlayerId] = useState<string | null>(null)
+  const [localDrawingPlayerId, setDrawingPlayerId] = useState<string | null>(null)
   const [selectedDiscards, setSelectedDiscards] = useState<Card[]>([])
   const [isWaitingForBots, setIsWaitingForBots] = useState<boolean>(false)
   const [playingCardKey, setPlayingCardKey] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<'suit' | 'rank'>('suit')
 
   const [dealerIndex, setDealerIndex] = useState<number>(0)
+
+  // Moninpelissä kukin vaihtaa korttinsa omalla laitteellaan samaan aikaan muiden kanssa
+  const myGamePlayer = mpGame?.players?.find((p) => p.id === myId)
+  const drawingPlayerId = isMulti
+      ? (mpGame?.phase === 'DEALT' && myGamePlayer && !myGamePlayer.hasDrawn ? myGamePlayer.id : null)
+      : localDrawingPlayerId
+
+  // Uusi tila tai virhe palvelimelta: pelattava kortti on käsitelty
+  useEffect(() => {
+    setPlayingCardKey(null)
+  }, [mp.table, mp.error])
+
+  // Uusi kierros moninpelissä: tyhjennetään edellisen kierroksen valinnat
+  useEffect(() => {
+    setSelectedDiscards([])
+  }, [mp.table?.round])
 
   const lastAdvanceSignatureRef = useRef<string | null>(null)
   const activeGameIdRef = useRef<string | null>(null)
@@ -122,6 +151,7 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (isMulti) return // Moninpelissä palvelin laskee pisteet
     if (state?.phase === 'FINISHED' && !roundProcessedRef.current) {
       roundProcessedRef.current = true;
       setMatchScores((prev) => {
@@ -138,7 +168,7 @@ export default function App() {
         return newScores;
       });
     }
-  }, [state]);
+  }, [state, isMulti]);
 
   useEffect(() => {
     const currentDrawingPlayer = state?.phase === 'DEALT'
@@ -148,7 +178,7 @@ export default function App() {
     const isBotDrawing = state?.phase === 'DEALT' && currentDrawingPlayer?.ai;
     const isBotPlayingTrick = state?.phase === 'TRICK_TAKING' && state.playerToActId && state.players?.find(p => p.id === state.playerToActId)?.ai;
 
-    if (!state) return
+    if (!state || isMulti) return
     if (!state.aiTurnPending && !isBotDrawing) return
 
     const signature = [
@@ -182,7 +212,7 @@ export default function App() {
         if (activeGameIdRef.current === gameIdAtDispatch) setIsWaitingForBots(false)
       }
     })()
-  }, [state, drawingPlayerId])
+  }, [state, drawingPlayerId, isMulti])
 
   async function startGame(isFirstRound = false) {
     const cleanPlayers = players
@@ -223,6 +253,10 @@ export default function App() {
   }
 
   async function handleNextRound() {
+    if (isMulti) {
+      mp.send({ type: 'nextRound', round: mp.table?.round })
+      return
+    }
     try {
       setError('')
       roundProcessedRef.current = false;
@@ -245,6 +279,11 @@ export default function App() {
     try {
       if (!drawingPlayerId || !state) return;
       setError('')
+      if (isMulti) {
+        mp.send({ type: 'draw', discards: selectedDiscards })
+        setSelectedDiscards([])
+        return
+      }
       setIsWaitingForBots(true)
       const discards = [...selectedDiscards]
       setSelectedDiscards([])
@@ -264,6 +303,10 @@ export default function App() {
       setError('')
       const cardKey = `${card.suit}-${card.rank}`
       setPlayingCardKey(cardKey)
+      if (isMulti) {
+        mp.send({ type: 'playCard', card })
+        return
+      }
       setIsWaitingForBots(true)
       const data = await playCard(state.gameId, state.playerToActId, card)
       applyState(data)
@@ -276,11 +319,22 @@ export default function App() {
   }
 
   const drawingPlayer = state?.players?.find((p) => p.id === drawingPlayerId)
-  const originalPlayerNames = players.map(p => p.name.trim())
+  // Istumajärjestys: yksinpelissä aloitusnäkymän järjestys, moninpelissä pöytään
+  // liittymisjärjestys kierrettynä niin, että oma paikka on alimpana (indeksi 0)
+  const lobbyIds = mp.table?.players.map((p) => p.id) ?? []
+  const myLobbyIndex = myId ? lobbyIds.indexOf(myId) : 0
+  const seatOrder = isMulti
+      ? [...lobbyIds.slice(myLobbyIndex), ...lobbyIds.slice(0, myLobbyIndex)]
+      : players.map(p => p.name.trim())
   const sortedSeatPlayers = state?.players ? [...state.players].sort((a, b) => {
-    return originalPlayerNames.indexOf(a.name) - originalPlayerNames.indexOf(b.name);
+    return isMulti
+        ? seatOrder.indexOf(a.id) - seatOrder.indexOf(b.id)
+        : seatOrder.indexOf(a.name) - seatOrder.indexOf(b.name);
   }) : []
   const humanPlayer = sortedSeatPlayers[0]
+  const isOffline = (playerId: string) =>
+      isMulti && mp.table?.players.find((p) => p.id === playerId)?.connected === false
+  const isHost = isMulti && mp.table?.hostId === myId
   const isMyTurn = state?.phase === 'TRICK_TAKING' && state.playerToActId === humanPlayer?.id
 
   return (
@@ -393,6 +447,18 @@ export default function App() {
               <div className="setup-card">
                 <h1 className="western-title"><span>🤠 🔫</span> Pokerikatko <span>🔫 🤠</span></h1>
                 <p className="subtitle">Lännen nopein pokeri + tikkipeli</p>
+                {mode === 'menu' ? (
+                <div className="setup main-menu">
+                  <button type="button" className="primary-btn" onClick={() => { setError(''); setMode('single') }}>
+                    🤠 Yksinpeli
+                  </button>
+                  <button type="button" className="primary-btn" onClick={() => { mp.setError(''); setMode('multi') }}>
+                    🌐 Moninpeli
+                  </button>
+                </div>
+                ) : mode === 'multi' ? (
+                <MultiplayerLobby mp={mp} onBack={() => setMode('menu')} />
+                ) : (
                 <div className="setup">
                   {error && <div className="error">{error}</div>}
 
@@ -481,8 +547,10 @@ export default function App() {
                     </span>
                   </div>
 
+                  <button type="button" className="back-btn" onClick={() => setMode('menu')}>← Takaisin</button>
                   <button type="button" onClick={handleCreateGame} style={{ width: '100%' }}>Jaa kortit ja aloita</button>
                 </div>
+                )}
               </div>
             </div>
         ) : (
@@ -490,6 +558,11 @@ export default function App() {
               <aside className="sidebar">
                 <div className="sidebar-header">
                   <h1 className="western-title" style={{ fontSize: '1.1rem' }}><span>🔫</span> Pokerikatko <span>🔫</span></h1>
+                  {isMulti && mp.table && (
+                      <div className="table-info">
+                        Pöytä: <strong>{mp.table.name}</strong> · kierros {mp.table.round}
+                      </div>
+                  )}
                 </div>
                 <div className="scoreboard">
                   <h3>Pisteet (Tavoite: {targetScore})</h3>
@@ -501,17 +574,33 @@ export default function App() {
                             className={'player-badge' + (isCurrent ? ' active' : '')}
                         >
                           <div className="name">
-                            {p.name} {p.ai && '🤖'}
+                            {p.name} {p.ai && '🤖'} {isOffline(p.id) && '📴'}
                           </div>
                           <div className="score">{matchScores[p.name] || 0} p</div>
                         </div>
                     );
                   })}
                 </div>
+                {isHost && (
+                    <button
+                        type="button"
+                        className="end-game-btn"
+                        onClick={() => {
+                          if (window.confirm('Lopetetaanko peli kaikilta ja palataan aulaan?')) {
+                            mp.send({ type: 'backToLobby' })
+                          }
+                        }}
+                    >
+                      Lopeta peli
+                    </button>
+                )}
               </aside>
 
               <main className="game-area">
-                {error && <div className="error">{error}</div>}
+                {isMulti && mp.status === 'reconnecting' && (
+                    <div className="error">Yhteys katkesi, yhdistetään uudelleen...</div>
+                )}
+                {(isMulti ? mp.error : error) && <div className="error">{isMulti ? mp.error : error}</div>}
                 {(() => {
                   const total = sortedSeatPlayers.length;
 
@@ -643,6 +732,7 @@ export default function App() {
                                       }
                                   >
                                     {p.name} {p.ai && '🤖'}
+                                    {isOffline(p.id) && ' 📴'}
                                     {isTrickWinner && ' 🏆'}
                                     {isHandWinner && ' 🃏'}
                                   </div>
@@ -692,6 +782,17 @@ export default function App() {
                             </div>
                         )}
 
+                        {isMulti && state.phase === 'DEALT' && !drawingPlayer && (
+                            <div className="player-panel">
+                              <p>
+                                Odotetaan muiden kortinvaihtoa:{' '}
+                                <strong>
+                                  {state.players.filter((p) => !p.hasDrawn).map((p) => p.name).join(', ')}
+                                </strong>
+                              </p>
+                            </div>
+                        )}
+
                         {state.phase === 'TRICK_TAKING' && humanPlayer && !humanPlayer.ai && (
                             <div className="player-panel">
                               <p>
@@ -703,7 +804,9 @@ export default function App() {
                                         } jos mahdollista`
                                         : 'on vuorossa — avaa tikki'
                                 ) : (
-                                    '— odotetaan muiden vuoroa...'
+                                    isMulti
+                                        ? `— odotetaan pelaajaa ${state.players.find((p) => p.id === state.playerToActId)?.name ?? ''}...`
+                                        : '— odotetaan muiden vuoroa...'
                                 )}
                               </p>
                               <div className="hand">
@@ -742,7 +845,11 @@ export default function App() {
                                       <p style={{ marginBottom: '15px' }}>
                                         Kokonaispisteet saavutettiin: {highestScore} / {targetScore}
                                       </p>
-                                      <button onClick={() => setState(null)}>Palaa valikkoon</button>
+                                      {isMulti ? (
+                                          <button onClick={() => mp.send({ type: 'backToLobby' })}>Palaa aulaan</button>
+                                      ) : (
+                                          <button onClick={() => setState(null)}>Palaa valikkoon</button>
+                                      )}
                                     </>
                                 ) : (
                                     <>

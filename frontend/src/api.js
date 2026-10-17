@@ -1,4 +1,10 @@
-const BASE_URL = 'https://pokerikatko-backend.desmond80x.workers.dev/api'
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://pokerikatko-backend.desmond80x.workers.dev'
+const BASE_URL = `${SERVER_URL}/api`
+
+// Moninpelin WebSocket-osoite, esim. wss://.../ws/tables/<pöydän nimi>
+export function tableSocketUrl(tableName) {
+  return `${SERVER_URL.replace(/^http/, 'ws')}/ws/tables/${encodeURIComponent(tableName)}`
+}
 
 async function handle(response) {
   let data

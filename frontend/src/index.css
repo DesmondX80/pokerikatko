@@ -607,3 +607,138 @@ body, html, #root {
   border-color: #fdd835 !important;
   box-shadow: 0 0 8px rgba(253, 216, 53, 0.4) !important;
 }
+/* ========================================= */
+/* ALKUVALIKKO JA MONINPELIN AULA            */
+/* ========================================= */
+
+.setup-card .main-menu {
+  gap: 12px !important;
+}
+
+.setup-card button.primary-btn {
+  background: #fdd835 !important;
+  color: #111 !important;
+  border: none !important;
+  font-weight: 700 !important;
+  padding: 14px 20px !important;
+  font-size: 1.05rem !important;
+  width: 100% !important;
+  box-shadow: 0 4px 15px rgba(253, 216, 53, 0.3) !important;
+}
+
+.setup-card button.primary-btn:hover {
+  background: #ffee58 !important;
+}
+
+.setup-card .setup > button.back-btn {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: none !important;
+  font-weight: 600 !important;
+  font-size: 0.9rem !important;
+  padding: 10px 16px !important;
+  margin-top: 10px !important;
+  width: 100% !important;
+  transform: none !important;
+}
+
+.setup-card .setup > button.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.setup-card .setup > button.back-btn + button {
+  margin-top: 0 !important;
+}
+
+.setup-card button:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+.lobby-heading {
+  font-size: 1.2rem;
+  color: #fdd835;
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.field-label {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 6px;
+}
+
+.hint {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+}
+
+.lobby-players {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lobby-players li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.lobby-players li.offline {
+  opacity: 0.55;
+}
+
+.lobby-status {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+.target-options {
+  display: flex;
+  gap: 10px;
+}
+
+.setup-card .target-options .target-option {
+  flex: 1;
+  font-weight: bold !important;
+}
+
+.setup-card .target-options .target-option.selected {
+  background: rgba(253, 216, 53, 0.2) !important;
+  border-color: #fdd835 !important;
+  color: #fdd835 !important;
+  opacity: 1 !important;
+}
+
+.table-info {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.end-game-btn {
+  margin-top: auto;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
